@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#050509">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="14dp"
+        android:background="#0A0A12">
+
+        <TextView
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:text="B"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:background="@drawable/bg_icon" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:text="Game Bracket"
+            android:textColor="#F3F3F7"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tvGameTag"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:text="Pilih Game"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:background="@drawable/bg_pill_pink" />
+    </LinearLayout>
+
+    <!-- Toolbar chips -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        android:background="#08080E">
+
+        <LinearLayout
+            android:id="@+id/toolbar"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="10dp">
+
+            <TextView android:id="@+id/btnOverlay" style="@style/Chip" android:text="Overlay" android:background="@drawable/bg_pill_pink" android:textColor="#FFF"/>
+            <TextView android:id="@+id/btnGame" style="@style/Chip" android:text="Game"/>
+            <TextView android:id="@+id/btnMode" style="@style/Chip" android:text="Mode"/>
+            <TextView android:id="@+id/btnSize4" style="@style/Chip" android:text="4"/>
+            <TextView android:id="@+id/btnSize8" style="@style/ChipActive" android:text="8"/>
+            <TextView android:id="@+id/btnSize16" style="@style/Chip" android:text="16"/>
+            <TextView android:id="@+id/btnBO1" style="@style/Chip" android:text="BO1"/>
+            <TextView android:id="@+id/btnBO3" style="@style/ChipActive" android:text="BO3"/>
+            <TextView android:id="@+id/btnBO5" style="@style/Chip" android:text="BO5"/>
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- Content -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <!-- Game panel -->
+            <LinearLayout
+                android:id="@+id/panelGame"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_card"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PILIH GAME"
+                    android:textColor="#5C5C72"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.1"
+                    android:layout_marginBottom="12dp" />
+
+                <GridLayout
+                    android:id="@+id/gridGames"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:columnCount="2"
+                    android:useDefaultMargins="true" />
+            </LinearLayout>
+
+            <!-- Mode panel -->
+            <LinearLayout
+                android:id="@+id/panelMode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp"
+                android:background="@drawable/bg_card"
+                android:visibility="gone"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="PILIH MODE"
+                    android:textColor="#5C5C72"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp" />
+
+                <GridLayout
+                    android:id="@+id/gridModes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:columnCount="2"
+                    android:useDefaultMargins="true" />
+            </LinearLayout>
+
+            <!-- Team list (BR) -->
+            <LinearLayout
+                android:id="@+id/teamList"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <!-- Bracket list -->
+            <HorizontalScrollView
+                android:id="@+id/bracketScroll"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:id="@+id/bracketContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingBottom="8dp" />
+            </HorizontalScrollView>
+
+            <!-- Champion -->
+            <LinearLayout
+                android:id="@+id/champBox"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="20dp"
+                android:background="@drawable/bg_champ"
+                android:visibility="gone"
+                android:layout_marginTop="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="JUARA"
+                    android:textColor="#7A7A90"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.15" />
+
+                <TextView
+                    android:id="@+id/tvChampion"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="—"
+                    android:textColor="#FFFFFF"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="6dp" />
+
+                <TextView
+                    android:id="@+id/btnCert"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:paddingHorizontal="24dp"
+                    android:paddingVertical="12dp"
+                    android:text="Buat Sertifikat"
+                    android:textColor="#FFFFFF"
+                    android:textStyle="bold"
+                    android:textSize="12sp"
+                    android:background="@drawable/bg_pill_pink"
+                    android:visibility="gone" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Bottom actions -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp"
+        android:background="#08080E">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView android:id="@+id/btnReset" style="@style/ActionBtn" android:text="Reset" android:background="@drawable/bg_pill_pink" android:textColor="#FFF"/>
+            <TextView android:id="@+id/btnFill" style="@style/ActionBtn" android:text="Contoh" android:background="@drawable/bg_btn_orange" android:textColor="#1A1000"/>
+            <TextView android:id="@+id/btnShuffle" style="@style/ActionBtn" android:text="Acak" android:background="@drawable/bg_btn_gray" android:textColor="#AAA"/>
+            <TextView android:id="@+id/btnAdd" style="@style/ActionBtn" android:text="+ Tim" android:background="@drawable/bg_btn_gray" android:textColor="#AAA"/>
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tvStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:text="Pilih game untuk mulai"
+            android:textColor="#4A4A5C"
+            android:textSize="10sp"
+            android:layout_marginTop="8dp" />
+    </LinearLayout>
+</LinearLayout>
