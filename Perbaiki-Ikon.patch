@@ -1,0 +1,38 @@
+diff --git a/Hapus-File-A.patch b/Hapus-File-A.patch
+deleted file mode 100644
+index ae14aaa..0000000
+--- a/Hapus-File-A.patch
++++ /dev/null
+@@ -1,14 +0,0 @@
+-diff --git a/app/src/main/asset/A b/app/src/main/asset/A
+-deleted file mode 100644
+-index 8b13789..0000000
+---- a/app/src/main/asset/A
+-+++ /dev/null
+-@@ -1 +0,0 @@
+--
+-diff --git a/app/src/main/res/xml/A b/app/src/main/res/xml/A
+-deleted file mode 100644
+-index 8b13789..0000000
+---- a/app/src/main/res/xml/A
+-+++ /dev/null
+-@@ -1 +0,0 @@
+--
+diff --git a/app/src/main/asset/A b/app/src/main/asset/A
+deleted file mode 100644
+index 8b13789..0000000
+--- a/app/src/main/asset/A
++++ /dev/null
+@@ -1 +0,0 @@
+-
+diff --git a/app/src/main/res/mipmap-hdpi/ic_launcher.xml b/app/src/main/res/mipmap-hdpi/ic_launcher.xml
+deleted file mode 100644
+index 8e133ec..0000000
+--- a/app/src/main/res/mipmap-hdpi/ic_launcher.xml
++++ /dev/null
+@@ -1,5 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+-    <background android:drawable="@color/bg"/>
+-    <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+-</adaptive-icon>
