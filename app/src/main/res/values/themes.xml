@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.GameBracket" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#FF3D7F</item>
+        <item name="colorPrimaryVariant">#C02560</item>
+        <item name="colorSecondary">#1AD9C8</item>
+        <item name="android:statusBarColor">#050509</item>
+        <item name="android:navigationBarColor">#050509</item>
+        <item name="android:windowBackground">#050509</item>
+        <item name="android:textColor">#F3F3F7</item>
+        <item name="android:textColorPrimary">#F3F3F7</item>
+    </style>
+</resources>
