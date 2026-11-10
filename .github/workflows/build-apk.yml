@@ -25,8 +25,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      # FIX: default "tools" sudah tidak ada di SDK repository, jadi override packages.
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
 
       # Project ini tidak punya gradlew, jadi Gradle dipasang langsung di sini.
       - name: Setup Gradle
