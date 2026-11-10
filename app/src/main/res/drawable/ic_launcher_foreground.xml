@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: huruf B, garis kiri = bracket turnamen, titik merah = LIVE -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#FF3D7F"
-        android:pathData="M0,0h108v108h-108z"/>
-    <path
-        android:fillColor="#FFFFFF"
-        android:pathData="M34,28h18c12,0 20,8 20,20c0,10 -6,17 -15,19l16,21h-12l-14,-19h-5v19h-8zM42,36v16h8c6,0 10,-3 10,-8c0,-5 -4,-8 -10,-8z"/>
+    <group android:translateX="8" android:translateY="4">
+        <path
+            android:strokeColor="#00E5FF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M22,39 H30 V59 H22 M30,49 H44" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M44,30 V70 M44,30 H58 A9,9 0 0 1 58,48 H44 M44,48 H60 A11,11 0 0 1 60,70 H44" />
+        <path
+            android:fillColor="#FF2E88"
+            android:strokeColor="#0B1030"
+            android:strokeWidth="2"
+            android:pathData="M72,19.5 A4.5,4.5 0 1 1 72,28.5 A4.5,4.5 0 1 1 72,19.5 Z" />
+    </group>
 </vector>

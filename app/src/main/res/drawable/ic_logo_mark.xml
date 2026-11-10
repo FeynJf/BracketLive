@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Logo B tanpa margin (dipakai di header, overlay, dan ikon lama Android < 8) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="60dp"
+    android:height="60dp"
+    android:viewportWidth="60"
+    android:viewportHeight="60">
+    <group android:translateX="-16" android:translateY="-18">
+        <path
+            android:strokeColor="#00E5FF"
+            android:strokeWidth="5"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M22,39 H30 V59 H22 M30,49 H44" />
+        <path
+            android:strokeColor="#FFFFFF"
+            android:strokeWidth="7"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M44,30 V70 M44,30 H58 A9,9 0 0 1 58,48 H44 M44,48 H60 A11,11 0 0 1 60,70 H44" />
+        <path
+            android:fillColor="#FF2E88"
+            android:strokeColor="#0B1030"
+            android:strokeWidth="2"
+            android:pathData="M72,19.5 A4.5,4.5 0 1 1 72,28.5 A4.5,4.5 0 1 1 72,19.5 Z" />
+    </group>
+</vector>

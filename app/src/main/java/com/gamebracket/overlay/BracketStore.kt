@@ -69,6 +69,56 @@ object BracketStore {
         while (players.size > size) players.removeAt(players.lastIndex)
     }
 
+    /** Nama babak: ROUND OF 16 / QUARTERFINAL / SEMIFINAL / FINAL */
+    fun roundName(r: Int): String {
+        val total = rounds()
+        return when (total - 1 - r) {
+            0 -> "FINAL"
+            1 -> "SEMIFINAL"
+            2 -> "QUARTERFINAL"
+            else -> "ROUND OF ${1 shl (total - r)}"
+        }
+    }
+
+    /** Hapus hasil babak-babak setelah match (fromR, fromM) karena hasilnya berubah. */
+    fun clearDown(fromR: Int, fromM: Int) {
+        val total = rounds()
+        for (r in fromR + 1 until total) {
+            val mk = "r${r}m${fromM / (1 shl (r - fromR))}"
+            winners.remove(mk)
+            series.remove(mk)
+        }
+    }
+
+    /**
+     * Tambah 1 poin/map untuk slot [s] di match (r, m). Kalau match sudah ada pemenang,
+     * hasilnya direset. Mengembalikan pesan status, atau null kalau klik diabaikan.
+     */
+    fun registerWin(r: Int, m: Int, s: Int): String? {
+        val key = "r${r}m$m"
+        val n0 = getName(r, m, 0)
+        val n1 = getName(r, m, 1)
+        if (n0.isBlank() && n1.isBlank()) return null
+        if (r > 0 && (n0.isBlank() || n1.isBlank())) return null
+
+        if (winners[key] != null) {
+            winners.remove(key)
+            series[key] = intArrayOf(0, 0)
+            clearDown(r, m)
+            return "Hasil match direset"
+        }
+        val sc = series.getOrPut(key) { intArrayOf(0, 0) }
+        val need = winsNeeded()
+        if (sc[s] < need) sc[s] = sc[s] + 1
+        return if (sc[s] >= need) {
+            winners[key] = s
+            clearDown(r, m)
+            "${if (s == 0) n0 else n1} menang ${sc[0]}-${sc[1]}"
+        } else {
+            "Series ${sc[0]}-${sc[1]} (butuh $need)"
+        }
+    }
+
     fun resetMatches() {
         winners.clear()
         series.clear()

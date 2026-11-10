@@ -4,19 +4,19 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:gravity="center_vertical"
-    android:padding="12dp"
-    android:layout_marginBottom="7dp"
-    android:background="@drawable/bg_card">
+    android:padding="10dp"
+    android:layout_marginBottom="8dp"
+    android:background="@drawable/bg_match">
 
     <TextView
         android:id="@+id/tvRank"
-        android:layout_width="28dp"
-        android:layout_height="28dp"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
         android:gravity="center"
         android:text="1"
         android:textStyle="bold"
-        android:textSize="12sp"
-        android:textColor="#666"
+        android:textSize="13sp"
+        android:textColor="@color/muted"
         android:background="@drawable/bg_chip" />
 
     <EditText
@@ -26,34 +26,34 @@
         android:layout_weight="1"
         android:layout_marginStart="10dp"
         android:background="@android:color/transparent"
-        android:textColor="#F3F3F7"
-        android:textSize="13sp"
+        android:textColor="@color/text"
+        android:textSize="14sp"
         android:textStyle="bold"
         android:inputType="text"
         android:maxLines="1"
         android:hint="Nama tim"
-        android:textColorHint="#444" />
+        android:textColorHint="@color/dim" />
 
     <EditText
         android:id="@+id/etScore"
-        android:layout_width="54dp"
-        android:layout_height="36dp"
+        android:layout_width="56dp"
+        android:layout_height="38dp"
         android:gravity="center"
         android:inputType="number"
         android:text="0"
-        android:textColor="#1AD9C8"
+        android:textColor="@color/cyan"
         android:textStyle="bold"
-        android:textSize="14sp"
-        android:background="@drawable/bg_chip" />
+        android:textSize="15sp"
+        android:background="@drawable/bg_input" />
 
     <TextView
         android:id="@+id/btnDel"
-        android:layout_width="32dp"
-        android:layout_height="32dp"
-        android:layout_marginStart="6dp"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_marginStart="8dp"
         android:gravity="center"
         android:text="×"
-        android:textColor="#FF3D7F"
-        android:textSize="16sp"
+        android:textColor="@color/red"
+        android:textSize="18sp"
         android:background="@drawable/bg_btn_gray" />
 </LinearLayout>
