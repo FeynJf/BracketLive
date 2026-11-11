@@ -7,8 +7,9 @@
     <!-- Mode tertutup: hanya ikon aplikasi. Ketuk untuk membuka panel -->
     <ImageView
         android:id="@+id/bubble"
-        android:layout_width="58dp"
-        android:layout_height="58dp"
+        android:layout_width="44dp"
+        android:layout_height="44dp"
+        android:alpha="0.95"
         android:src="@drawable/ic_bubble"
         android:contentDescription="Buka Bracket Live" />
 
@@ -18,6 +19,7 @@
         android:layout_width="320dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:padding="2dp"
         android:visibility="gone"
         android:background="@drawable/bg_overlay_panel">
 
@@ -104,7 +106,7 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:paddingBottom="4dp"
-            android:text="Ketuk angka di samping tim untuk tambah poin"
+            android:text="Ketuk angka di samping tim untuk tambah poin · geser bracket ke samping"
             android:textColor="#7E89A8"
             android:textSize="10sp" />
 

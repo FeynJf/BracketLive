@@ -3,6 +3,18 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
+// Nomor build: dikirim GitHub Actions (-PbuildNumber=...). Jadi versionCode dan dicocokkan
+// dengan tag release "build-<nomor>" oleh fitur update di aplikasi.
+def buildNumber = (project.findProperty('buildNumber') ?: '100').toInteger()
+
+// Kunci tanda tangan tetap (base64 di repo). Tanpa ini tiap build GitHub Actions bertanda
+// tangan berbeda dan Android menolak update ("App not installed").
+def signKeystore = file('debug.keystore')
+def signKeystoreB64 = file('debug.keystore.b64')
+if (!signKeystore.exists() && signKeystoreB64.exists()) {
+    signKeystore.bytes = Base64.getMimeDecoder().decode(signKeystoreB64.text)
+}
+
 android {
     namespace 'com.gamebracket.overlay'
     compileSdk 34
@@ -11,8 +23,20 @@ android {
         applicationId "com.gamebracket.overlay"
         minSdk 24
         targetSdk 34
-        versionCode 4
-        versionName "3.0"
+        versionCode buildNumber
+        versionName "3.1.${buildNumber}"
+    }
+
+    signingConfigs {
+        debug {
+            if (signKeystore.exists()) {
+                storeFile signKeystore
+                storeType 'pkcs12'
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
     }
 
     buildTypes {

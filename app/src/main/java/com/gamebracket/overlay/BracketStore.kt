@@ -4,7 +4,7 @@ package com.gamebracket.overlay
  * Shared tournament state — native, no HTML.
  */
 object BracketStore {
-    data class Team(var name: String, var score: Int = 0)
+    data class Team(var name: String, var score: Int = 0, var logo: String? = null)
     data class Mode(val id: String, val name: String, val type: String) // br | bracket
 
     val games = linkedMapOf(
@@ -42,6 +42,8 @@ object BracketStore {
     var teams: MutableList<Team> = mutableListOf()
     /** players for bracket slots */
     var players: MutableList<String> = MutableList(8) { "Tim ${it + 1}" }
+    /** path logo untuk tiap slot bracket (sejajar dengan [players]) */
+    var playerLogos: MutableList<String?> = MutableList(8) { null }
     /** matchKey "r{r}m{m}" -> winner slot 0/1 */
     var winners: MutableMap<String, Int> = mutableMapOf()
     /** series scores */
@@ -59,6 +61,40 @@ object BracketStore {
         return getName(r - 1, m * 2 + s, prev)
     }
 
+    fun getLogo(r: Int, m: Int, s: Int): String? {
+        if (r == 0) return playerLogos.getOrNull(m * 2 + s)
+        val prev = winners["r${r - 1}m${m * 2 + s}"] ?: return null
+        return getLogo(r - 1, m * 2 + s, prev)
+    }
+
+    /** Acak slot bracket (nama + logo ikut berpindah bersama). */
+    fun shufflePlayers() {
+        ensurePlayers()
+        val order = players.indices.shuffled()
+        val np = order.map { players[it] }
+        val nl = order.map { playerLogos[it] }
+        players = np.toMutableList()
+        playerLogos = nl.toMutableList()
+    }
+
+    fun replacePlayers(names: List<String>) {
+        players = names.toMutableList()
+        playerLogos = MutableList(players.size) { null }
+        ensurePlayers()
+    }
+
+    fun championLogo(): String? {
+        val m = mode ?: return null
+        return if (m.type == "br") {
+            teams.maxByOrNull { it.score }?.takeIf { it.score > 0 }?.logo
+        } else {
+            val total = rounds()
+            if (total == 0) return null
+            val w = winners["r${total - 1}m0"] ?: return null
+            getLogo(total - 1, 0, w)
+        }
+    }
+
     fun ensureTeams() {
         while (teams.size < size) teams.add(Team("Tim ${teams.size + 1}"))
         while (teams.size > size) teams.removeAt(teams.lastIndex)
@@ -67,6 +103,8 @@ object BracketStore {
     fun ensurePlayers() {
         while (players.size < size) players.add("Tim ${players.size + 1}")
         while (players.size > size) players.removeAt(players.lastIndex)
+        while (playerLogos.size < players.size) playerLogos.add(null)
+        while (playerLogos.size > players.size) playerLogos.removeAt(playerLogos.lastIndex)
     }
 
     /** Nama babak: ROUND OF 16 / QUARTERFINAL / SEMIFINAL / FINAL */

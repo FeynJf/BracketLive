@@ -1,0 +1,5 @@
+app/debug.keystore
+*.apk
+build/
+.gradle/
+local.properties

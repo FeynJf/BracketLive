@@ -23,6 +23,9 @@ import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.animation.ValueAnimator
+import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -60,6 +63,9 @@ class OverlayService : Service() {
     private var expanded = false
     private var bubbleX = 0
     private var bubbleY = 0
+    private var panelW = 0
+    private var hScroll: HorizontalScrollView? = null
+    private var savedScrollX = 0
 
     private val flagsBubble = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
         WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN
@@ -85,7 +91,7 @@ class OverlayService : Service() {
         Handler(Looper.getMainLooper()).post {
             try {
                 if (root == null) showOverlay()
-                toast("Overlay aktif — ketuk ikon B")
+                toast("Overlay aktif — keluar dari app untuk melihat ikon B")
             } catch (e: Exception) {
                 toast("Gagal: ${e.message}")
                 stopSelf()
@@ -132,7 +138,9 @@ class OverlayService : Service() {
         tvChamp = v.findViewById(R.id.tvOverlayChamp)
         tvStatus = v.findViewById(R.id.tvOverlayStatus)
 
-        val maxH = min(dp(340), (resources.displayMetrics.heightPixels * 0.42f).toInt())
+        panelW = min(resources.displayMetrics.widthPixels - dp(16), dp(460))
+        panel.layoutParams = panel.layoutParams.apply { width = panelW }
+        val maxH = min(dp(420), (resources.displayMetrics.heightPixels * 0.5f).toInt())
         v.findViewById<MaxHeightScrollView>(R.id.overlayScroll).maxHeightPx = maxH
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
@@ -151,8 +159,8 @@ class OverlayService : Service() {
         params.x = dp(12)
         params.y = dp(200)
 
-        attachDrag(bubble) { expand() }
-        attachDrag(v.findViewById(R.id.dragHandle), null)
+        attachDrag(bubble, true) { expand() }
+        attachDrag(v.findViewById(R.id.dragHandle), false, null)
 
         v.findViewById<View>(R.id.btnClose).setOnClickListener { stopSelf() }
         v.findViewById<View>(R.id.btnMin).setOnClickListener { collapse() }
@@ -165,6 +173,20 @@ class OverlayService : Service() {
         }
 
         wm.addView(v, params)
+
+        // Ikon B hanya muncul saat pengguna berada di luar aplikasi
+        AppVisibility.listener = { fg -> applyForeground(fg) }
+        applyForeground(AppVisibility.inForeground)
+    }
+
+    private fun applyForeground(fg: Boolean) {
+        val r = root ?: return
+        if (fg) {
+            if (expanded) collapse()
+            r.visibility = View.GONE
+        } else {
+            r.visibility = View.VISIBLE
+        }
     }
 
     private fun expand() {
@@ -176,7 +198,7 @@ class OverlayService : Service() {
         bubble.visibility = View.GONE
         panel.visibility = View.VISIBLE
         params.flags = flagsPanel
-        params.x = max(0, (resources.displayMetrics.widthPixels - dp(320)) / 2)
+        params.x = max(0, (resources.displayMetrics.widthPixels - panelW) / 2)
         params.y = dp(48)
         updateWindow()
     }
@@ -204,8 +226,8 @@ class OverlayService : Service() {
         imm.hideSoftInputFromWindow(r.windowToken, 0)
     }
 
-    /** Geser view; kalau hanya diketuk (tidak bergeser) panggil [onTap]. */
-    private fun attachDrag(target: View, onTap: (() -> Unit)?) {
+    /** Geser view; kalau hanya diketuk (tidak bergeser) panggil [onTap]. Ikon menempel ke tepi layar. */
+    private fun attachDrag(target: View, snap: Boolean, onTap: (() -> Unit)?) {
         val slop = ViewConfiguration.get(this).scaledTouchSlop
         target.setOnTouchListener(object : View.OnTouchListener {
             var ix = 0; var iy = 0; var tx = 0f; var ty = 0f; var moved = false
@@ -221,13 +243,13 @@ class OverlayService : Service() {
                         if (!moved && (abs(dx) > slop || abs(dy) > slop)) moved = true
                         if (moved) {
                             params.x = ix + dx
-                            params.y = iy + dy
+                            params.y = max(0, iy + dy)
                             updateWindow()
                         }
                         return true
                     }
                     MotionEvent.ACTION_UP -> {
-                        if (!moved) onTap?.invoke()
+                        if (!moved) onTap?.invoke() else if (snap && !expanded) snapToEdge()
                         return true
                     }
                 }
@@ -236,9 +258,25 @@ class OverlayService : Service() {
         })
     }
 
+    private fun snapToEdge() {
+        val screenW = resources.displayMetrics.widthPixels
+        val size = dp(44)
+        val target = if (params.x + size / 2 < screenW / 2) dp(4) else screenW - size - dp(4)
+        ValueAnimator.ofInt(params.x, target).apply {
+            duration = 160
+            addUpdateListener {
+                params.x = it.animatedValue as Int
+                updateWindow()
+            }
+            start()
+        }
+    }
+
     // ───────────────────────── Isi panel ─────────────────────────
 
     private fun render() {
+        hScroll?.let { savedScrollX = it.scrollX }
+        hScroll = null
         content.removeAllViews()
         tvGame.text = BracketStore.gameId?.let { BracketStore.games[it]?.first } ?: "Belum ada game"
         val mode = BracketStore.mode
@@ -272,6 +310,11 @@ class OverlayService : Service() {
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(dp(22), LinearLayout.LayoutParams.WRAP_CONTENT)
             })
+            row.addView(ImageView(this).apply {
+                val px = dp(28)
+                setImageDrawable(LogoHelper.drawable(this@OverlayService, team.name, team.logo, px))
+                layoutParams = LinearLayout.LayoutParams(px, px).apply { marginStart = dp(4); marginEnd = dp(4) }
+            })
             row.addView(nameField(team.name, R.color.text) { team.name = it; updateChamp() })
             row.addView(squareButton("−", false) {
                 team.score = max(0, team.score - 1)
@@ -302,13 +345,22 @@ class OverlayService : Service() {
     }
 
     private fun renderBracket() {
-        for (r in 0 until BracketStore.rounds()) {
-            content.addView(label(BracketStore.roundName(r), 10f, R.color.cyan, true).apply {
-                letterSpacing = 0.12f
-                setPadding(dp(2), dp(6), 0, dp(6))
-            })
-            for (m in 0 until BracketStore.matchesIn(r)) content.addView(buildMatch(r, m))
+        val hs = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
         }
+        val holder = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        hs.addView(holder)
+        content.addView(hs)
+        hScroll = hs
+        val cfg = BracketUi.Config(cardWidthDp = 156, rowHeightDp = 34, textSp = 12f, logoDp = 22, connectorDp = 20)
+        BracketUi.build(this, holder, cfg, null) { msg ->
+            msg?.let { setStatus(it) }
+            render()
+        }
+        val x = savedScrollX
+        hs.post { hs.scrollTo(x, 0) }
+
         content.addView(actionRow(
             "Reset Hasil" to {
                 BracketStore.resetMatches()
@@ -316,56 +368,6 @@ class OverlayService : Service() {
                 render()
             }
         ))
-    }
-
-    private fun buildMatch(r: Int, m: Int): View {
-        val key = "r${r}m$m"
-        val sc = BracketStore.series[key] ?: intArrayOf(0, 0)
-        val winner = BracketStore.winners[key]
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundResource(R.drawable.bg_match)
-            layoutParams = rowParams(dp(8))
-        }
-        for (s in 0..1) {
-            val name = BracketStore.getName(r, m, s)
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(10), 0, dp(6), 0)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(38)
-                )
-                if (winner == s) setBackgroundColor(Color.parseColor("#1A00E5FF"))
-            }
-            row.addView(label(if (r == 0) "${m * 2 + s + 1}" else "", 10f, R.color.dim, true).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(16), LinearLayout.LayoutParams.WRAP_CONTENT)
-            })
-            if (r == 0) {
-                val c = if (winner != null && winner != s) R.color.dim else R.color.text
-                row.addView(nameField(name, c) { BracketStore.players[m * 2 + s] = it; updateChamp() })
-            } else {
-                val c = when {
-                    winner == s -> R.color.cyan
-                    winner != null -> R.color.dim
-                    else -> R.color.text
-                }
-                row.addView(label(name.ifBlank { "—" }, 13f, c, true).apply {
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                })
-            }
-            row.addView(label("${sc[s]}", 13f, if (winner == s) R.color.text else R.color.muted_light, true).apply {
-                gravity = Gravity.CENTER
-                setBackgroundResource(if (winner == s) R.drawable.bg_btn_primary else R.drawable.bg_chip)
-                layoutParams = LinearLayout.LayoutParams(dp(34), dp(28))
-                setOnClickListener {
-                    BracketStore.registerWin(r, m, s)?.let { setStatus(it) }
-                    render()
-                }
-            })
-            box.addView(row)
-        }
-        return box
     }
 
     private fun updateChamp() {
@@ -450,6 +452,7 @@ class OverlayService : Service() {
         }
 
     override fun onDestroy() {
+        AppVisibility.listener = null
         setRunning(false)
         try { root?.let { wm.removeView(it) } } catch (_: Exception) {}
         root = null

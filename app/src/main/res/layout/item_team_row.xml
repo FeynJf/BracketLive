@@ -19,6 +19,13 @@
         android:textColor="@color/muted"
         android:background="@drawable/bg_chip" />
 
+    <ImageView
+        android:id="@+id/ivLogo"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginStart="10dp"
+        android:contentDescription="Logo tim (ketuk untuk ganti)" />
+
     <EditText
         android:id="@+id/etName"
         android:layout_width="0dp"

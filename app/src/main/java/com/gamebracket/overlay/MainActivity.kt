@@ -23,6 +23,10 @@ import android.view.View
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridLayout
+import android.widget.ImageView
+import android.widget.ProgressBar
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.pm.PackageInfoCompat
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -58,8 +62,23 @@ class MainActivity : AppCompatActivity() {
     private val gameButtons = linkedMapOf<String, TextView>()
     private val modeButtons = linkedMapOf<String, TextView>()
 
+    private lateinit var tvVersion: TextView
+
     private var suppressSwitch = false
     private var pendingOverlay = false
+    private var pendingApk: File? = null
+    private var pickTarget: ((String) -> Unit)? = null
+
+    private val logoPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            val path = LogoHelper.saveFromUri(this, uri)
+            if (path != null) pickTarget?.invoke(path) else status("Gambar tidak bisa dibaca")
+        }
+    }
+
+    companion object {
+        private var updateChecked = false
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         switchOverlay = findViewById(R.id.switchOverlay)
         tvOverlayState = findViewById(R.id.tvOverlayState)
         dotOverlay = findViewById(R.id.dotOverlay)
+        tvVersion = findViewById(R.id.tvVersion)
 
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -95,7 +115,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.btnFill).setOnClickListener { fillSample() }
         findViewById<TextView>(R.id.btnShuffle).setOnClickListener { shuffle() }
         findViewById<TextView>(R.id.btnAdd).setOnClickListener { addTeam() }
-        btnCert.setOnClickListener { makeCertificate() }
+        btnCert.setOnClickListener { startActivity(Intent(this, CertificateActivity::class.java)) }
 
         updateSizeChips()
         updateBOChips()
@@ -114,15 +134,24 @@ class MainActivity : AppCompatActivity() {
         } else {
             status("Pilih game untuk mulai")
         }
+
+        tvVersion.text = "Versi ${versionName()}  ·  Cek update"
+        tvVersion.setOnClickListener { checkUpdate(true) }
+        if (!updateChecked) {
+            updateChecked = true
+            checkUpdate(false)
+        }
     }
 
     override fun onStart() {
         super.onStart()
+        AppVisibility.onStart()
         OverlayService.stateListener = { on -> runOnUiThread { setOverlaySwitch(on) } }
     }
 
     override fun onStop() {
         OverlayService.stateListener = null
+        AppVisibility.onStop()
         super.onStop()
     }
 
@@ -133,6 +162,12 @@ class MainActivity : AppCompatActivity() {
             if (Settings.canDrawOverlays(this)) startOverlay()
         } else {
             setOverlaySwitch(OverlayService.isRunning)
+        }
+        pendingApk?.let { apk ->
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()) {
+                pendingApk = null
+                installApk(apk)
+            }
         }
         // Data bisa berubah dari overlay → segarkan tampilan
         refreshFromStore()
@@ -179,7 +214,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
         else startService(i)
         setOverlaySwitch(true)
-        status("Overlay aktif — ketuk ikon B untuk membuka")
+        status("Overlay aktif — keluar dari app, ikon B akan muncul")
     }
 
     private fun stopOverlay() {
@@ -340,6 +375,14 @@ class MainActivity : AppCompatActivity() {
             val etName = row.findViewById<EditText>(R.id.etName)
             val etScore = row.findViewById<EditText>(R.id.etScore)
             val btnDel = row.findViewById<TextView>(R.id.btnDel)
+            val ivLogo = row.findViewById<ImageView>(R.id.ivLogo)
+            ivLogo.setImageDrawable(LogoHelper.drawable(this, team.name, team.logo, dp(36)))
+            ivLogo.setOnClickListener {
+                pickLogo { path ->
+                    BracketStore.teams[idx].logo = path
+                    renderTeams()
+                }
+            }
             tvRank.text = "${rank + 1}"
             tvRank.setTextColor(
                 col(
@@ -374,135 +417,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderBracket() {
-        bracketContainer.removeAllViews()
-        val rounds = BracketStore.rounds()
-        val cardW = dp(172)
-        val baseSlot = dp(104)
-        for (r in 0 until rounds) {
-            val column = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dp(5), 0, dp(5), 0)
-            }
-            val label = TextView(this).apply {
-                text = BracketStore.roundName(r)
-                setTextColor(col(R.color.cyan))
-                textSize = 10f
-                letterSpacing = 0.12f
-                gravity = Gravity.CENTER
-                setTypeface(null, Typeface.BOLD)
-                setPadding(0, 0, 0, dp(8))
-                layoutParams = LinearLayout.LayoutParams(cardW, LinearLayout.LayoutParams.WRAP_CONTENT)
-            }
-            column.addView(label)
-            for (m in 0 until BracketStore.matchesIn(r)) {
-                // slot makin tinggi tiap babak → kartu match tampil sejajar di tengah (bentuk bracket)
-                val slot = FrameLayout(this).apply {
-                    layoutParams = LinearLayout.LayoutParams(cardW, baseSlot * (1 shl r))
+        val cfg = BracketUi.Config(cardWidthDp = 178, rowHeightDp = 38, textSp = 12.5f, logoDp = 26, connectorDp = 24)
+        BracketUi.build(
+            this, bracketContainer, cfg,
+            pickLogo = { slot ->
+                pickLogo { path ->
+                    BracketStore.ensurePlayers()
+                    BracketStore.playerLogos[slot] = path
+                    renderBracket()
                 }
-                val card = buildMatchView(r, m)
-                card.layoutParams = FrameLayout.LayoutParams(
-                    cardW, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL
-                )
-                slot.addView(card)
-                column.addView(slot)
+            },
+            onWin = { msg ->
+                msg?.let { status(it) }
+                renderBracket()
             }
-            bracketContainer.addView(column)
-        }
+        )
         updateChampion()
     }
 
-    private fun buildMatchView(r: Int, m: Int): View {
-        val key = "r${r}m$m"
-        val sc = BracketStore.series[key] ?: intArrayOf(0, 0)
-        val winner = BracketStore.winners[key]
-        val box = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundResource(R.drawable.bg_match)
-        }
-        if (BracketStore.boFormat > 1) {
-            box.addView(TextView(this).apply {
-                text = "BO${BracketStore.boFormat}"
-                setTextColor(col(R.color.muted))
-                textSize = 9f
-                letterSpacing = 0.15f
-                gravity = Gravity.CENTER
-                setTypeface(null, Typeface.BOLD)
-                setPadding(0, dp(5), 0, 0)
-            })
-        }
-        for (s in 0..1) {
-            val name = BracketStore.getName(r, m, s)
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(10), 0, dp(6), 0)
-                layoutParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, dp(36)
-                )
-                if (winner == s) setBackgroundColor(Color.parseColor("#1A00E5FF"))
-            }
-            row.addView(TextView(this).apply {
-                text = if (r == 0) "${m * 2 + s + 1}" else ""
-                setTextColor(col(R.color.dim))
-                textSize = 10f
-                setTypeface(null, Typeface.BOLD)
-                layoutParams = LinearLayout.LayoutParams(dp(16), LinearLayout.LayoutParams.WRAP_CONTENT)
-            })
-            if (r == 0) {
-                row.addView(EditText(this).apply {
-                    setText(name)
-                    setTextColor(col(if (winner != null && winner != s) R.color.dim else R.color.text))
-                    textSize = 12f
-                    setTypeface(null, Typeface.BOLD)
-                    setBackgroundColor(Color.TRANSPARENT)
-                    setPadding(0, 0, 0, 0)
-                    minimumHeight = 0
-                    minHeight = 0
-                    setSingleLine()
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
-                    addTextChangedListener(simpleWatcher { t ->
-                        BracketStore.players[m * 2 + s] = t
-                    })
-                })
-            } else {
-                row.addView(TextView(this).apply {
-                    text = name.ifBlank { "—" }
-                    setTextColor(
-                        col(
-                            when {
-                                winner == s -> R.color.cyan
-                                winner != null -> R.color.dim
-                                else -> R.color.text
-                            }
-                        )
-                    )
-                    textSize = 12f
-                    setTypeface(null, Typeface.BOLD)
-                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
-                })
-            }
-            // Tombol skor: ketuk untuk +1 poin / menangkan match
-            val badge = TextView(this).apply {
-                text = "${sc[s]}"
-                gravity = Gravity.CENTER
-                setTextColor(if (winner == s) Color.WHITE else col(R.color.muted_light))
-                textSize = 12f
-                setTypeface(null, Typeface.BOLD)
-                setBackgroundResource(if (winner == s) R.drawable.bg_btn_primary else R.drawable.bg_chip)
-                layoutParams = LinearLayout.LayoutParams(dp(32), dp(26))
-                setOnClickListener { onSlotClick(r, m, s) }
-            }
-            row.addView(badge)
-            if (r > 0) row.setOnClickListener { onSlotClick(r, m, s) }
-            box.addView(row)
-        }
-        return box
-    }
-
-    private fun onSlotClick(r: Int, m: Int, s: Int) {
-        val msg = BracketStore.registerWin(r, m, s) ?: return
-        status(msg)
-        renderBracket()
+    private fun pickLogo(setter: (String) -> Unit) {
+        pickTarget = setter
+        logoPicker.launch("image/*")
     }
 
     private fun updateChampion() {
@@ -521,7 +456,7 @@ class MainActivity : AppCompatActivity() {
     private fun resetAll() {
         BracketStore.resetMatches()
         BracketStore.teams.clear()
-        BracketStore.players = MutableList(BracketStore.size) { "Tim ${it + 1}" }
+        BracketStore.replacePlayers(List(BracketStore.size) { "Tim ${it + 1}" })
         BracketStore.ensureTeams()
         BracketStore.mode?.let { selectMode(it) }
         status("Reset")
@@ -537,9 +472,7 @@ class MainActivity : AppCompatActivity() {
                 BracketStore.teams.add(BracketStore.Team("Tim ${BracketStore.teams.size + 1}"))
             renderTeams()
         } else {
-            BracketStore.players = sample.take(BracketStore.size).toMutableList()
-            while (BracketStore.players.size < BracketStore.size)
-                BracketStore.players.add("Tim ${BracketStore.players.size + 1}")
+            BracketStore.replacePlayers((0 until BracketStore.size).map { sample.getOrNull(it) ?: "Tim ${it + 1}" })
             BracketStore.resetMatches()
             renderBracket()
         }
@@ -552,7 +485,7 @@ class MainActivity : AppCompatActivity() {
             BracketStore.teams.shuffle()
             renderTeams()
         } else {
-            BracketStore.players.shuffle()
+            BracketStore.shufflePlayers()
             BracketStore.resetMatches()
             renderBracket()
         }
@@ -567,96 +500,102 @@ class MainActivity : AppCompatActivity() {
         } else status("Untuk bracket, ganti jumlah slot 4/8/16")
     }
 
-    private fun makeCertificate() {
-        val name = BracketStore.champion() ?: return
-        val bmp = Bitmap.createBitmap(1200, 850, Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    // ───────────────────────── Update aplikasi ─────────────────────────
 
-        p.color = Color.parseColor("#FAF7F0")
-        c.drawRect(0f, 0f, 1200f, 850f, p)
-        p.style = Paint.Style.STROKE
-        p.strokeWidth = 18f
-        p.color = Color.parseColor("#C9A227")
-        c.drawRect(28f, 28f, 1172f, 822f, p)
-        p.strokeWidth = 2.5f
-        p.color = Color.parseColor("#8B7355")
-        c.drawRect(52f, 52f, 1148f, 798f, p)
+    private fun currentBuild(): Int = try {
+        PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
+    } catch (e: Exception) { 0 }
 
-        p.style = Paint.Style.FILL
-        p.color = Color.parseColor("#5C4A1F")
-        p.textAlign = Paint.Align.CENTER
-        p.textSize = 42f
-        p.typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
-        c.drawText("SERTIFIKAT JUARA", 600f, 160f, p)
+    private fun versionName(): String = try {
+        packageManager.getPackageInfo(packageName, 0).versionName ?: ""
+    } catch (e: Exception) { "" }
 
-        p.textSize = 56f
-        c.drawText("🏆", 600f, 240f, p)
-
-        p.color = Color.parseColor("#555555")
-        p.textSize = 22f
-        p.typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
-        c.drawText("Dengan ini menyatakan bahwa", 600f, 300f, p)
-
-        p.color = Color.BLACK
-        p.textSize = 52f
-        p.typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
-        c.drawText(name, 600f, 380f, p)
-
-        val game = BracketStore.gameId?.let { BracketStore.games[it]?.first } ?: ""
-        val mode = BracketStore.mode?.name ?: ""
-        p.color = Color.parseColor("#444444")
-        p.textSize = 20f
-        p.typeface = Typeface.create(Typeface.SERIF, Typeface.NORMAL)
-        c.drawText("Juara $game - $mode", 600f, 440f, p)
-
-        val date = SimpleDateFormat("d MMMM yyyy", Locale("id")).format(Date())
-        p.color = Color.parseColor("#777777")
-        p.textSize = 18f
-        c.drawText(date, 600f, 490f, p)
-
-        p.color = Color.parseColor("#0D1728")
-        p.textSize = 36f
-        p.typeface = Typeface.create(Typeface.SERIF, Typeface.ITALIC)
-        c.drawText("Panitia", 900f, 700f, p)
-        p.strokeWidth = 2f
-        p.style = Paint.Style.STROKE
-        c.drawLine(760f, 720f, 1040f, 720f, p)
-
-        p.color = Color.parseColor("#9A8F78")
-        p.textSize = 16f
-        p.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
-        c.drawText("BRACKET LIVE", 600f, 790f, p)
-
-        // save
-        val fileName = "Sertifikat_${name.replace(" ", "_")}.png"
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val values = ContentValues().apply {
-                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
-                    put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
-                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/BracketLive")
-                    put(MediaStore.MediaColumns.IS_PENDING, 1)
-                }
-                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
-                uri?.let {
-                    contentResolver.openOutputStream(it)?.use { out ->
-                        bmp.compress(Bitmap.CompressFormat.PNG, 100, out)
-                    }
-                    values.clear()
-                    values.put(MediaStore.MediaColumns.IS_PENDING, 0)
-                    contentResolver.update(it, values, null, null)
-                }
-            } else {
-                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-                val folder = File(dir, "BracketLive").apply { mkdirs() }
-                FileOutputStream(File(folder, fileName)).use {
-                    bmp.compress(Bitmap.CompressFormat.PNG, 100, it)
+    private fun checkUpdate(manual: Boolean) {
+        if (manual) status("Mengecek update…")
+        Thread {
+            val info = try { UpdateChecker.fetchLatest() } catch (e: Exception) { null }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                val cur = currentBuild()
+                when {
+                    info == null -> if (manual) status("Belum ada update / gagal terhubung ke GitHub")
+                    info.build > cur -> showUpdateDialog(info, cur)
+                    else -> if (manual) status("Sudah versi terbaru (build $cur)")
                 }
             }
-            Toast.makeText(this, "Sertifikat disimpan ke Galeri", Toast.LENGTH_LONG).show()
+        }.start()
+    }
+
+    private fun showUpdateDialog(info: UpdateChecker.Info, cur: Int) {
+        val notes = info.notes.trim().take(400)
+        val msg = "Versi baru tersedia: build ${info.build} (kamu: build $cur)." +
+            if (notes.isNotEmpty()) "\n\n$notes" else ""
+        AlertDialog.Builder(this)
+            .setTitle("Update tersedia")
+            .setMessage(msg)
+            .setPositiveButton("Download & Install") { _, _ -> downloadAndInstall(info) }
+            .setNegativeButton("Nanti", null)
+            .show()
+    }
+
+    private fun downloadAndInstall(info: UpdateChecker.Info) {
+        val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
+            max = 100
+            isIndeterminate = true
+        }
+        val box = LinearLayout(this).apply {
+            setPadding(dp(24), dp(16), dp(24), dp(8))
+            addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        }
+        val dlg = AlertDialog.Builder(this)
+            .setTitle("Mengunduh update…")
+            .setView(box)
+            .setCancelable(false)
+            .create()
+        dlg.show()
+        Thread {
+            try {
+                val f = UpdateChecker.download(this, info.apkUrl) { pct ->
+                    runOnUiThread {
+                        if (pct >= 0) {
+                            bar.isIndeterminate = false
+                            bar.progress = pct
+                        }
+                    }
+                }
+                runOnUiThread {
+                    dlg.dismiss()
+                    installApk(f)
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    dlg.dismiss()
+                    status("Gagal mengunduh update: ${e.message}")
+                    Toast.makeText(this, "Gagal mengunduh update", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
+    }
+
+    private fun installApk(apk: File) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
+            pendingApk = apk
+            AlertDialog.Builder(this)
+                .setTitle("Izin install")
+                .setMessage("Izinkan Bracket Live untuk memasang aplikasi, lalu kembali ke sini. Update akan dilanjutkan otomatis.")
+                .setPositiveButton("Buka Settings") { _, _ ->
+                    startActivity(
+                        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
+                    )
+                }
+                .setNegativeButton("Batal") { _, _ -> pendingApk = null }
+                .show()
+            return
+        }
+        try {
+            startActivity(UpdateChecker.installIntent(this, apk))
         } catch (e: Exception) {
-            Toast.makeText(this, "Gagal simpan: ${e.message}", Toast.LENGTH_LONG).show()
+            status("Gagal membuka installer: ${e.message}")
         }
     }
 

@@ -11,7 +11,14 @@ Aplikasi bracket turnamen untuk live streaming — **Kotlin + XML**, tanpa HTML/
 - **Overlay berbentuk ikon "B"** yang bisa digeser; ketuk untuk membuka panel
   - Edit nama tim, tambah/kurangi skor, tentukan pemenang langsung dari overlay
   - Ketuk tombol **—** untuk menutup panel kembali jadi ikon
-- Sertifikat juara → Galeri
+- Logo untuk setiap tim (ketuk lingkaran logo di app, ambil dari galeri)
+- Sertifikat juara yang bisa diedit sebelum disimpan (teks, logo, tema, tanda tangan tegak bersambung)
+- Update otomatis: app mengecek rilis terbaru di GitHub lalu mengarahkan Download & Install
+
+## Update otomatis
+Workflow `.github/workflows/build-apk.yml` membuat GitHub Release `build-<nomor>` berisi APK di setiap build.
+Saat aplikasi dibuka, nomor build di app dibandingkan dengan rilis terbaru; kalau ada yang lebih baru
+muncul dialog **Download & Install**. Bisa juga dicek manual lewat tulisan "Cek update" di bagian bawah.
 
 ## Build di GitHub Actions
 1. Upload seluruh isi folder ini ke repo (settings.gradle harus di root)

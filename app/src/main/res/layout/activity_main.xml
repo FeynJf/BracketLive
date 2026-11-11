@@ -352,5 +352,16 @@
             android:textColor="@color/muted"
             android:textSize="10sp"
             android:layout_marginTop="8dp" />
+
+        <TextView
+            android:id="@+id/tvVersion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:paddingTop="6dp"
+            android:paddingBottom="2dp"
+            android:text="Cek update"
+            android:textColor="@color/cyan"
+            android:textSize="10sp" />
     </LinearLayout>
 </LinearLayout>
