@@ -1,0 +1,364 @@
+diff --git a/app/src/main/java/com/gamebracket/overlay/HoldRingView.kt b/app/src/main/java/com/gamebracket/overlay/HoldRingView.kt
+new file mode 100644
+index 0000000..eb32acb
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/HoldRingView.kt
+@@ -0,0 +1,49 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.graphics.RectF
++import android.graphics.SweepGradient
++import android.util.AttributeSet
++import android.view.View
++
++/** Cincin progres yang terisi saat ikon overlay ditahan. */
++class HoldRingView @JvmOverloads constructor(
++    context: Context,
++    attrs: AttributeSet? = null
++) : View(context, attrs) {
++
++    private val stroke = 3f * resources.displayMetrics.density
++    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        style = Paint.Style.STROKE
++        strokeWidth = stroke
++        strokeCap = Paint.Cap.ROUND
++    }
++    private val rect = RectF()
++
++    var progress: Float = 0f
++        set(value) {
++            field = value
++            invalidate()
++        }
++
++    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
++        val pad = stroke / 2f + 1f
++        rect.set(pad, pad, w - pad, h - pad)
++        paint.shader = SweepGradient(
++            w / 2f, h / 2f,
++            intArrayOf(Color.parseColor("#00E5FF"), Color.parseColor("#7C4DFF"), Color.parseColor("#FF2E88"), Color.parseColor("#00E5FF")),
++            null
++        )
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        if (progress <= 0f) return
++        canvas.save()
++        canvas.rotate(-90f, width / 2f, height / 2f)
++        canvas.drawArc(rect, 0f, 360f * progress.coerceIn(0f, 1f), false, paint)
++        canvas.restore()
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/Prefs.kt b/app/src/main/java/com/gamebracket/overlay/Prefs.kt
+new file mode 100644
+index 0000000..040a0c1
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/Prefs.kt
+@@ -0,0 +1,16 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++
++/** Pengaturan sederhana (disimpan di SharedPreferences). */
++object Prefs {
++    private fun sp(ctx: Context) = ctx.getSharedPreferences("bracketlive", Context.MODE_PRIVATE)
++
++    /** Opasitas latar panel overlay, 30..100 (persen). */
++    fun panelOpacity(ctx: Context): Int = sp(ctx).getInt("panel_opacity", 70).coerceIn(30, 100)
++    fun setPanelOpacity(ctx: Context, v: Int) { sp(ctx).edit().putInt("panel_opacity", v.coerceIn(30, 100)).apply() }
++
++    /** Lama menahan ikon sebelum panel terbuka, dalam milidetik (300..1500). */
++    fun holdMs(ctx: Context): Int = sp(ctx).getInt("hold_ms", 700).coerceIn(300, 1500)
++    fun setHoldMs(ctx: Context, v: Int) { sp(ctx).edit().putInt("hold_ms", v.coerceIn(300, 1500)).apply() }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+new file mode 100644
+index 0000000..c98442f
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+@@ -0,0 +1,145 @@
++package com.gamebracket.overlay
++
++import android.content.Intent
++import android.net.Uri
++import android.os.Build
++import android.os.Bundle
++import android.provider.Settings
++import android.view.View
++import android.widget.SeekBar
++import android.widget.TextView
++import android.widget.Toast
++import androidx.appcompat.app.AlertDialog
++import androidx.appcompat.app.AppCompatActivity
++import androidx.appcompat.widget.SwitchCompat
++import androidx.core.content.ContextCompat
++import java.util.Locale
++
++/** Pengaturan: toggle overlay, transparansi & lama tahan ikon, serta update aplikasi. */
++class SettingsActivity : AppCompatActivity() {
++
++    private lateinit var switchOverlay: SwitchCompat
++    private lateinit var tvOverlayState: TextView
++    private lateinit var dotOverlay: View
++    private lateinit var tvOpacityVal: TextView
++    private lateinit var tvHoldVal: TextView
++    private lateinit var tvVersion: TextView
++    private lateinit var tvUpdateStatus: TextView
++
++    private val updater by lazy { UpdateFlow(this) { tvUpdateStatus.text = it } }
++
++    private var suppressSwitch = false
++    private var pendingOverlay = false
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        setContentView(R.layout.activity_settings)
++
++        switchOverlay = findViewById(R.id.switchOverlay)
++        tvOverlayState = findViewById(R.id.tvOverlayState)
++        dotOverlay = findViewById(R.id.dotOverlay)
++        tvOpacityVal = findViewById(R.id.tvOpacityVal)
++        tvHoldVal = findViewById(R.id.tvHoldVal)
++        tvVersion = findViewById(R.id.tvVersion)
++        tvUpdateStatus = findViewById(R.id.tvUpdateStatus)
++
++        findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
++
++        switchOverlay.setOnCheckedChangeListener { _, checked ->
++            if (suppressSwitch) return@setOnCheckedChangeListener
++            if (checked) startOverlay() else stopOverlay()
++        }
++        setOverlaySwitch(OverlayService.isRunning)
++
++        // Transparansi panel: 30..100 %
++        val sbOpacity = findViewById<SeekBar>(R.id.sbOpacity)
++        sbOpacity.progress = Prefs.panelOpacity(this) - 30
++        tvOpacityVal.text = "${Prefs.panelOpacity(this)}%"
++        sbOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
++            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
++                Prefs.setPanelOpacity(this@SettingsActivity, 30 + p)
++                tvOpacityVal.text = "${30 + p}%"
++            }
++            override fun onStartTrackingTouch(sb: SeekBar?) {}
++            override fun onStopTrackingTouch(sb: SeekBar?) {}
++        })
++
++        // Lama tahan ikon: 0,3 – 1,5 detik
++        val sbHold = findViewById<SeekBar>(R.id.sbHold)
++        sbHold.progress = (Prefs.holdMs(this) - 300) / 100
++        tvHoldVal.text = holdText(Prefs.holdMs(this))
++        sbHold.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
++            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
++                val ms = 300 + p * 100
++                Prefs.setHoldMs(this@SettingsActivity, ms)
++                tvHoldVal.text = holdText(ms)
++            }
++            override fun onStartTrackingTouch(sb: SeekBar?) {}
++            override fun onStopTrackingTouch(sb: SeekBar?) {}
++        })
++
++        tvVersion.text = "Versi ${updater.versionName()}  (build ${updater.currentBuild()})"
++        findViewById<View>(R.id.btnCheckUpdate).setOnClickListener { updater.check(true) }
++    }
++
++    override fun onStart() {
++        super.onStart()
++        AppVisibility.onStart()
++        OverlayService.stateListener = { on -> runOnUiThread { setOverlaySwitch(on) } }
++    }
++
++    override fun onStop() {
++        OverlayService.stateListener = null
++        AppVisibility.onStop()
++        super.onStop()
++    }
++
++    override fun onResume() {
++        super.onResume()
++        if (pendingOverlay) {
++            pendingOverlay = false
++            if (Settings.canDrawOverlays(this)) startOverlay()
++        } else {
++            setOverlaySwitch(OverlayService.isRunning)
++        }
++        updater.onResume()
++    }
++
++    private fun holdText(ms: Int) = String.format(Locale("id"), "%.1f dtk", ms / 1000.0)
++
++    private fun setOverlaySwitch(on: Boolean) {
++        suppressSwitch = true
++        switchOverlay.isChecked = on
++        suppressSwitch = false
++        tvOverlayState.text = if (on) "Overlay Aktif" else "Overlay Nonaktif"
++        tvOverlayState.setTextColor(ContextCompat.getColor(this, if (on) R.color.green else R.color.muted))
++        dotOverlay.setBackgroundResource(if (on) R.drawable.bg_dot_on else R.drawable.bg_dot_off)
++    }
++
++    private fun startOverlay() {
++        if (!Settings.canDrawOverlays(this)) {
++            setOverlaySwitch(false)
++            AlertDialog.Builder(this)
++                .setTitle("Izin Overlay")
++                .setMessage("Aktifkan izin \"Tampil di atas aplikasi lain\" untuk Bracket Live, lalu kembali ke aplikasi ini.")
++                .setPositiveButton("Buka Settings") { _, _ ->
++                    pendingOverlay = true
++                    startActivity(
++                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
++                    )
++                }
++                .setNegativeButton("Batal", null)
++                .show()
++            return
++        }
++        val i = Intent(this, OverlayService::class.java)
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
++        setOverlaySwitch(true)
++        Toast.makeText(this, "Overlay aktif — keluar dari app, ikon B akan muncul", Toast.LENGTH_LONG).show()
++    }
++
++    private fun stopOverlay() {
++        stopService(Intent(this, OverlayService::class.java))
++        setOverlaySwitch(false)
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt b/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
+new file mode 100644
+index 0000000..055adc1
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
+@@ -0,0 +1,130 @@
++package com.gamebracket.overlay
++
++import android.content.Intent
++import android.net.Uri
++import android.os.Build
++import android.provider.Settings
++import android.widget.LinearLayout
++import android.widget.ProgressBar
++import android.widget.Toast
++import androidx.appcompat.app.AlertDialog
++import androidx.appcompat.app.AppCompatActivity
++import androidx.core.content.pm.PackageInfoCompat
++import java.io.File
++
++/** Alur update di dalam aplikasi: cek rilis → dialog → unduh → install. */
++class UpdateFlow(
++    private val act: AppCompatActivity,
++    private val onStatus: (String) -> Unit
++) {
++    private var pendingApk: File? = null
++
++    fun currentBuild(): Int = try {
++        PackageInfoCompat.getLongVersionCode(act.packageManager.getPackageInfo(act.packageName, 0)).toInt()
++    } catch (e: Exception) { 0 }
++
++    fun versionName(): String = try {
++        act.packageManager.getPackageInfo(act.packageName, 0).versionName ?: ""
++    } catch (e: Exception) { "" }
++
++    fun check(manual: Boolean) {
++        if (manual) onStatus("Mengecek update…")
++        Thread {
++            val info = try { UpdateChecker.fetchLatest() } catch (e: Exception) { null }
++            act.runOnUiThread {
++                if (act.isFinishing || act.isDestroyed) return@runOnUiThread
++                val cur = currentBuild()
++                when {
++                    info == null -> if (manual) onStatus("Belum ada update / gagal terhubung ke GitHub")
++                    info.build > cur -> showDialog(info, cur)
++                    else -> if (manual) onStatus("Sudah versi terbaru (build $cur)")
++                }
++            }
++        }.start()
++    }
++
++    /** Panggil dari onResume(): lanjutkan install setelah pengguna memberi izin. */
++    fun onResume() {
++        pendingApk?.let { apk ->
++            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || act.packageManager.canRequestPackageInstalls()) {
++                pendingApk = null
++                install(apk)
++            }
++        }
++    }
++
++    private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
++
++    private fun showDialog(info: UpdateChecker.Info, cur: Int) {
++        val notes = info.notes.trim().take(400)
++        val msg = "Versi baru tersedia: build ${info.build} (kamu: build $cur)." +
++            if (notes.isNotEmpty()) "\n\n$notes" else ""
++        AlertDialog.Builder(act)
++            .setTitle("Update tersedia")
++            .setMessage(msg)
++            .setPositiveButton("Download & Install") { _, _ -> download(info) }
++            .setNegativeButton("Nanti", null)
++            .show()
++    }
++
++    private fun download(info: UpdateChecker.Info) {
++        val bar = ProgressBar(act, null, android.R.attr.progressBarStyleHorizontal).apply {
++            max = 100
++            isIndeterminate = true
++        }
++        val box = LinearLayout(act).apply {
++            setPadding(dp(24), dp(16), dp(24), dp(8))
++            addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
++        }
++        val dlg = AlertDialog.Builder(act)
++            .setTitle("Mengunduh update…")
++            .setView(box)
++            .setCancelable(false)
++            .create()
++        dlg.show()
++        Thread {
++            try {
++                val f = UpdateChecker.download(act, info.apkUrl) { pct ->
++                    act.runOnUiThread {
++                        if (pct >= 0) {
++                            bar.isIndeterminate = false
++                            bar.progress = pct
++                        }
++                    }
++                }
++                act.runOnUiThread {
++                    dlg.dismiss()
++                    install(f)
++                }
++            } catch (e: Exception) {
++                act.runOnUiThread {
++                    dlg.dismiss()
++                    onStatus("Gagal mengunduh update: ${e.message}")
++                    Toast.makeText(act, "Gagal mengunduh update", Toast.LENGTH_LONG).show()
++                }
++            }
++        }.start()
++    }
++
++    private fun install(apk: File) {
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !act.packageManager.canRequestPackageInstalls()) {
++            pendingApk = apk
++            AlertDialog.Builder(act)
++                .setTitle("Izin install")
++                .setMessage("Izinkan Bracket Live untuk memasang aplikasi, lalu kembali ke sini. Update akan dilanjutkan otomatis.")
++                .setPositiveButton("Buka Settings") { _, _ ->
++                    act.startActivity(
++                        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${act.packageName}"))
++                    )
++                }
++                .setNegativeButton("Batal") { _, _ -> pendingApk = null }
++                .show()
++            return
++        }
++        try {
++            act.startActivity(UpdateChecker.installIntent(act, apk))
++        } catch (e: Exception) {
++            onStatus("Gagal membuka installer: ${e.message}")
++        }
++    }
++}

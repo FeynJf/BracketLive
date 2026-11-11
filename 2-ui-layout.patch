@@ -1,0 +1,883 @@
+diff --git a/app/src/main/res/layout/activity_main.xml b/app/src/main/res/layout/activity_main.xml
+index 3302e09..69cb4ee 100644
+--- a/app/src/main/res/layout/activity_main.xml
++++ b/app/src/main/res/layout/activity_main.xml
+@@ -4,7 +4,7 @@
+     android:layout_width="match_parent"
+     android:layout_height="match_parent"
+     android:orientation="vertical"
+-    android:background="@color/bg">
++    android:background="@drawable/bg_main">
+ 
+     <!-- Header -->
+     <LinearLayout
+@@ -12,12 +12,15 @@
+         android:layout_height="wrap_content"
+         android:orientation="horizontal"
+         android:gravity="center_vertical"
+-        android:padding="16dp"
++        android:paddingStart="16dp"
++        android:paddingEnd="16dp"
++        android:paddingTop="14dp"
++        android:paddingBottom="14dp"
+         android:background="@drawable/bg_header">
+ 
+         <ImageView
+-            android:layout_width="44dp"
+-            android:layout_height="44dp"
++            android:layout_width="50dp"
++            android:layout_height="50dp"
+             android:src="@drawable/ic_logo"
+             android:contentDescription="Bracket Live" />
+ 
+@@ -39,46 +42,42 @@
+                     android:layout_height="wrap_content"
+                     android:text="BRACKET"
+                     android:textColor="@color/text"
+-                    android:textSize="18sp"
+-                    android:textStyle="bold"
+-                    android:letterSpacing="0.08" />
++                    android:textSize="20sp"
++                    android:fontFamily="sans-serif-black"
++                    android:letterSpacing="0.06" />
+ 
+                 <TextView
++                    android:id="@+id/tvTitleLive"
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+                     android:layout_marginStart="6dp"
+                     android:text="LIVE"
+                     android:textColor="@color/cyan"
+-                    android:textSize="18sp"
+-                    android:textStyle="bold"
+-                    android:letterSpacing="0.08" />
+-
++                    android:textSize="20sp"
++                    android:fontFamily="sans-serif-black"
++                    android:letterSpacing="0.06" />
+             </LinearLayout>
+ 
+             <TextView
+                 android:layout_width="wrap_content"
+                 android:layout_height="wrap_content"
+-                android:layout_marginTop="2dp"
+-                android:text="TOURNAMENT BRACKET MANAGER"
+-                android:textColor="@color/muted"
++                android:layout_marginTop="1dp"
++                android:text="TOURNAMENT MANAGER"
++                android:textColor="@color/muted_light"
+                 android:textSize="9sp"
+                 android:textStyle="bold"
+-                android:letterSpacing="0.15" />
++                android:fontFamily="sans-serif-condensed"
++                android:letterSpacing="0.25" />
+         </LinearLayout>
+ 
+-        <TextView
+-            android:id="@+id/tvGameTag"
+-            android:layout_width="wrap_content"
+-            android:layout_height="wrap_content"
+-            android:paddingStart="12dp"
+-            android:paddingEnd="12dp"
+-            android:paddingTop="7dp"
+-            android:paddingBottom="7dp"
+-            android:text="Pilih Game"
+-            android:textColor="@color/on_accent"
+-            android:textSize="10sp"
+-            android:textStyle="bold"
+-            android:background="@drawable/bg_chip_active" />
++        <ImageView
++            android:id="@+id/btnSettings"
++            android:layout_width="44dp"
++            android:layout_height="44dp"
++            android:padding="10dp"
++            android:src="@drawable/ic_settings"
++            android:background="@drawable/bg_icon_btn"
++            android:contentDescription="Pengaturan" />
+     </LinearLayout>
+ 
+     <View
+@@ -86,62 +85,6 @@
+         android:layout_height="2dp"
+         android:background="@drawable/bg_neon_line" />
+ 
+-    <!-- Toggle overlay (di atas) -->
+-    <LinearLayout
+-        android:layout_width="match_parent"
+-        android:layout_height="wrap_content"
+-        android:layout_marginStart="14dp"
+-        android:layout_marginEnd="14dp"
+-        android:layout_marginTop="12dp"
+-        android:orientation="horizontal"
+-        android:gravity="center_vertical"
+-        android:paddingStart="14dp"
+-        android:paddingEnd="14dp"
+-        android:paddingTop="10dp"
+-        android:paddingBottom="10dp"
+-        android:background="@drawable/bg_toggle_bar">
+-
+-        <androidx.appcompat.widget.SwitchCompat
+-            android:id="@+id/switchOverlay"
+-            android:layout_width="wrap_content"
+-            android:layout_height="wrap_content"
+-            android:minHeight="40dp"
+-            app:thumbTint="@color/switch_thumb"
+-            app:trackTint="@color/switch_track" />
+-
+-        <View
+-            android:id="@+id/dotOverlay"
+-            android:layout_width="10dp"
+-            android:layout_height="10dp"
+-            android:layout_marginStart="14dp"
+-            android:background="@drawable/bg_dot_off" />
+-
+-        <LinearLayout
+-            android:layout_width="0dp"
+-            android:layout_height="wrap_content"
+-            android:layout_weight="1"
+-            android:layout_marginStart="8dp"
+-            android:orientation="vertical">
+-
+-            <TextView
+-                android:id="@+id/tvOverlayState"
+-                android:layout_width="wrap_content"
+-                android:layout_height="wrap_content"
+-                android:text="Overlay Nonaktif"
+-                android:textColor="@color/muted"
+-                android:textSize="14sp"
+-                android:textStyle="bold" />
+-
+-            <TextView
+-                android:layout_width="wrap_content"
+-                android:layout_height="wrap_content"
+-                android:layout_marginTop="1dp"
+-                android:text="Ikon B melayang di atas aplikasi lain"
+-                android:textColor="@color/muted"
+-                android:textSize="10sp" />
+-        </LinearLayout>
+-    </LinearLayout>
+-
+     <!-- Content -->
+     <ScrollView
+         android:layout_width="match_parent"
+@@ -161,10 +104,36 @@
+                 android:layout_height="wrap_content"
+                 android:orientation="vertical"
+                 android:padding="14dp"
+-                android:background="@drawable/bg_card"
++                android:background="@drawable/bg_card_neon"
+                 android:layout_marginBottom="12dp">
+ 
+-                <TextView style="@style/SectionLabel" android:text="TURNAMEN" />
++                <LinearLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:orientation="horizontal"
++                    android:gravity="center_vertical">
++
++                    <TextView
++                        style="@style/SectionLabel"
++                        android:layout_width="0dp"
++                        android:layout_weight="1"
++                        android:text="TURNAMEN" />
++
++                    <TextView
++                        android:id="@+id/tvGameTag"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:paddingStart="12dp"
++                        android:paddingEnd="12dp"
++                        android:paddingTop="5dp"
++                        android:paddingBottom="5dp"
++                        android:text="Pilih Game"
++                        android:textColor="@color/on_accent"
++                        android:textSize="10sp"
++                        android:textStyle="bold"
++                        android:fontFamily="sans-serif-condensed"
++                        android:background="@drawable/bg_chip_active" />
++                </LinearLayout>
+ 
+                 <LinearLayout
+                     android:layout_width="match_parent"
+@@ -254,6 +223,49 @@
+                     android:columnCount="2" />
+             </LinearLayout>
+ 
++            <!-- Empty state -->
++            <LinearLayout
++                android:id="@+id/emptyState"
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:orientation="vertical"
++                android:gravity="center_horizontal"
++                android:paddingTop="22dp"
++                android:paddingBottom="22dp">
++
++                <FrameLayout
++                    android:layout_width="132dp"
++                    android:layout_height="132dp"
++                    android:background="@drawable/bg_empty_ring">
++
++                    <ImageView
++                        android:layout_width="84dp"
++                        android:layout_height="84dp"
++                        android:layout_gravity="center"
++                        android:src="@drawable/ic_logo_mark"
++                        android:contentDescription="Bracket Live" />
++                </FrameLayout>
++
++                <TextView
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="16dp"
++                    android:text="SIAP BERTANDING?"
++                    android:textColor="@color/text"
++                    android:textSize="16sp"
++                    android:fontFamily="sans-serif-black"
++                    android:letterSpacing="0.1" />
++
++                <TextView
++                    android:layout_width="wrap_content"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="4dp"
++                    android:gravity="center"
++                    android:text="Pilih game &amp; mode untuk membuat bracket turnamen"
++                    android:textColor="@color/muted"
++                    android:textSize="11sp" />
++            </LinearLayout>
++
+             <!-- Team list (BR) -->
+             <LinearLayout
+                 android:id="@+id/teamList"
+@@ -324,13 +336,18 @@
+         </LinearLayout>
+     </ScrollView>
+ 
++    <View
++        android:layout_width="match_parent"
++        android:layout_height="1dp"
++        android:background="#2C3A75" />
++
+     <!-- Bottom actions -->
+     <LinearLayout
+         android:layout_width="match_parent"
+         android:layout_height="wrap_content"
+         android:orientation="vertical"
+         android:padding="12dp"
+-        android:background="#0A0E1C">
++        android:background="#080C22">
+ 
+         <LinearLayout
+             android:layout_width="match_parent"
+@@ -353,15 +370,5 @@
+             android:textSize="10sp"
+             android:layout_marginTop="8dp" />
+ 
+-        <TextView
+-            android:id="@+id/tvVersion"
+-            android:layout_width="match_parent"
+-            android:layout_height="wrap_content"
+-            android:gravity="center"
+-            android:paddingTop="6dp"
+-            android:paddingBottom="2dp"
+-            android:text="Cek update"
+-            android:textColor="@color/cyan"
+-            android:textSize="10sp" />
+     </LinearLayout>
+ </LinearLayout>
+diff --git a/app/src/main/res/layout/activity_settings.xml b/app/src/main/res/layout/activity_settings.xml
+new file mode 100644
+index 0000000..24d142a
+--- /dev/null
++++ b/app/src/main/res/layout/activity_settings.xml
+@@ -0,0 +1,312 @@
++<?xml version="1.0" encoding="utf-8"?>
++<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:app="http://schemas.android.com/apk/res-auto"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent"
++    android:orientation="vertical"
++    android:background="@drawable/bg_main">
++
++    <LinearLayout
++        android:layout_width="match_parent"
++        android:layout_height="wrap_content"
++        android:orientation="horizontal"
++        android:gravity="center_vertical"
++        android:paddingStart="16dp"
++        android:paddingEnd="16dp"
++        android:paddingTop="14dp"
++        android:paddingBottom="14dp"
++        android:background="@drawable/bg_header">
++
++        <ImageView
++            android:id="@+id/btnBack"
++            android:layout_width="44dp"
++            android:layout_height="44dp"
++            android:padding="10dp"
++            android:src="@drawable/ic_back"
++            android:background="@drawable/bg_icon_btn"
++            android:contentDescription="Kembali" />
++
++        <LinearLayout
++            android:layout_width="0dp"
++            android:layout_height="wrap_content"
++            android:layout_weight="1"
++            android:layout_marginStart="14dp"
++            android:orientation="vertical">
++
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:text="PENGATURAN"
++                android:textColor="@color/text"
++                android:textSize="18sp"
++                android:fontFamily="sans-serif-black"
++                android:letterSpacing="0.08" />
++
++            <TextView
++                android:layout_width="wrap_content"
++                android:layout_height="wrap_content"
++                android:text="OVERLAY · UPDATE · TENTANG"
++                android:textColor="@color/muted_light"
++                android:textSize="9sp"
++                android:textStyle="bold"
++                android:fontFamily="sans-serif-condensed"
++                android:letterSpacing="0.22" />
++        </LinearLayout>
++    </LinearLayout>
++
++    <View
++        android:layout_width="match_parent"
++        android:layout_height="2dp"
++        android:background="@drawable/bg_neon_line" />
++
++    <ScrollView
++        android:layout_width="match_parent"
++        android:layout_height="match_parent">
++
++        <LinearLayout
++            android:layout_width="match_parent"
++            android:layout_height="wrap_content"
++            android:orientation="vertical"
++            android:padding="14dp">
++
++            <!-- OVERLAY -->
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:orientation="vertical"
++                android:padding="16dp"
++                android:layout_marginBottom="14dp"
++                android:background="@drawable/bg_card_neon">
++
++                <TextView style="@style/SectionLabel" android:text="OVERLAY LIVE" />
++
++                <LinearLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="12dp"
++                    android:orientation="horizontal"
++                    android:gravity="center_vertical">
++
++                    <View
++                        android:id="@+id/dotOverlay"
++                        android:layout_width="10dp"
++                        android:layout_height="10dp"
++                        android:background="@drawable/bg_dot_off" />
++
++                    <LinearLayout
++                        android:layout_width="0dp"
++                        android:layout_height="wrap_content"
++                        android:layout_weight="1"
++                        android:layout_marginStart="10dp"
++                        android:orientation="vertical">
++
++                        <TextView
++                            android:id="@+id/tvOverlayState"
++                            android:layout_width="wrap_content"
++                            android:layout_height="wrap_content"
++                            android:text="Overlay Nonaktif"
++                            android:textColor="@color/muted"
++                            android:textSize="16sp"
++                            android:fontFamily="sans-serif-condensed"
++                            android:textStyle="bold" />
++
++                        <TextView
++                            android:layout_width="wrap_content"
++                            android:layout_height="wrap_content"
++                            android:layout_marginTop="2dp"
++                            android:text="Ikon B melayang setelah kamu keluar dari app"
++                            android:textColor="@color/muted"
++                            android:textSize="10sp" />
++                    </LinearLayout>
++
++                    <androidx.appcompat.widget.SwitchCompat
++                        android:id="@+id/switchOverlay"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:minHeight="44dp"
++                        app:thumbTint="@color/switch_thumb"
++                        app:trackTint="@color/switch_track" />
++                </LinearLayout>
++
++                <View
++                    android:layout_width="match_parent"
++                    android:layout_height="1dp"
++                    android:layout_marginTop="14dp"
++                    android:background="#22FFFFFF" />
++
++                <LinearLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="14dp"
++                    android:orientation="horizontal"
++                    android:gravity="center_vertical">
++
++                    <TextView
++                        style="@style/SectionLabel"
++                        android:layout_width="0dp"
++                        android:layout_weight="1"
++                        android:text="TRANSPARANSI PANEL" />
++
++                    <TextView
++                        android:id="@+id/tvOpacityVal"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:text="70%"
++                        android:textColor="@color/cyan"
++                        android:textSize="12sp"
++                        android:textStyle="bold" />
++                </LinearLayout>
++
++                <SeekBar
++                    android:id="@+id/sbOpacity"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="4dp"
++                    android:max="70"
++                    android:progressTint="@color/cyan"
++                    android:progressBackgroundTint="#2C3A75"
++                    android:thumbTint="@color/cyan" />
++
++                <LinearLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="10dp"
++                    android:orientation="horizontal"
++                    android:gravity="center_vertical">
++
++                    <TextView
++                        style="@style/SectionLabel"
++                        android:layout_width="0dp"
++                        android:layout_weight="1"
++                        android:text="TAHAN IKON UNTUK MEMBUKA" />
++
++                    <TextView
++                        android:id="@+id/tvHoldVal"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:text="0,7 dtk"
++                        android:textColor="@color/cyan"
++                        android:textSize="12sp"
++                        android:textStyle="bold" />
++                </LinearLayout>
++
++                <SeekBar
++                    android:id="@+id/sbHold"
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="4dp"
++                    android:max="12"
++                    android:progressTint="@color/cyan"
++                    android:progressBackgroundTint="#2C3A75"
++                    android:thumbTint="@color/cyan" />
++
++                <TextView
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="6dp"
++                    android:text="Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live."
++                    android:textColor="@color/muted"
++                    android:textSize="10sp" />
++            </LinearLayout>
++
++            <!-- UPDATE -->
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:orientation="vertical"
++                android:padding="16dp"
++                android:layout_marginBottom="14dp"
++                android:background="@drawable/bg_card">
++
++                <TextView style="@style/SectionLabel" android:text="UPDATE APLIKASI" />
++
++                <LinearLayout
++                    android:layout_width="match_parent"
++                    android:layout_height="wrap_content"
++                    android:layout_marginTop="12dp"
++                    android:orientation="horizontal"
++                    android:gravity="center_vertical">
++
++                    <LinearLayout
++                        android:layout_width="0dp"
++                        android:layout_height="wrap_content"
++                        android:layout_weight="1"
++                        android:orientation="vertical">
++
++                        <TextView
++                            android:id="@+id/tvVersion"
++                            android:layout_width="wrap_content"
++                            android:layout_height="wrap_content"
++                            android:text="Versi —"
++                            android:textColor="@color/text"
++                            android:textSize="15sp"
++                            android:fontFamily="sans-serif-condensed"
++                            android:textStyle="bold" />
++
++                        <TextView
++                            android:id="@+id/tvUpdateStatus"
++                            android:layout_width="wrap_content"
++                            android:layout_height="wrap_content"
++                            android:layout_marginTop="2dp"
++                            android:text="Ketuk tombol untuk mengecek versi terbaru"
++                            android:textColor="@color/muted"
++                            android:textSize="10sp" />
++                    </LinearLayout>
++
++                    <TextView
++                        android:id="@+id/btnCheckUpdate"
++                        android:layout_width="wrap_content"
++                        android:layout_height="40dp"
++                        android:gravity="center"
++                        android:paddingStart="18dp"
++                        android:paddingEnd="18dp"
++                        android:text="Cek Update"
++                        android:textColor="#FFFFFF"
++                        android:textSize="12sp"
++                        android:textStyle="bold"
++                        android:fontFamily="sans-serif-condensed"
++                        android:background="@drawable/bg_btn_primary" />
++                </LinearLayout>
++            </LinearLayout>
++
++            <!-- TENTANG -->
++            <LinearLayout
++                android:layout_width="match_parent"
++                android:layout_height="wrap_content"
++                android:orientation="horizontal"
++                android:gravity="center_vertical"
++                android:padding="16dp"
++                android:background="@drawable/bg_card">
++
++                <ImageView
++                    android:layout_width="44dp"
++                    android:layout_height="44dp"
++                    android:src="@drawable/ic_logo"
++                    android:contentDescription="Bracket Live" />
++
++                <LinearLayout
++                    android:layout_width="0dp"
++                    android:layout_height="wrap_content"
++                    android:layout_weight="1"
++                    android:layout_marginStart="12dp"
++                    android:orientation="vertical">
++
++                    <TextView
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:text="Bracket Live"
++                        android:textColor="@color/text"
++                        android:textSize="14sp"
++                        android:textStyle="bold" />
++
++                    <TextView
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:text="Bracket turnamen untuk live streaming"
++                        android:textColor="@color/muted"
++                        android:textSize="10sp" />
++                </LinearLayout>
++            </LinearLayout>
++        </LinearLayout>
++    </ScrollView>
++</LinearLayout>
+diff --git a/app/src/main/res/layout/overlay_bracket.xml b/app/src/main/res/layout/overlay_bracket.xml
+index 4a98eb3..ffa0358 100644
+--- a/app/src/main/res/layout/overlay_bracket.xml
++++ b/app/src/main/res/layout/overlay_bracket.xml
+@@ -4,39 +4,48 @@
+     android:layout_width="wrap_content"
+     android:layout_height="wrap_content">
+ 
+-    <!-- Mode tertutup: hanya ikon aplikasi. Ketuk untuk membuka panel -->
+-    <ImageView
++    <!-- Mode tertutup: ikon aplikasi. TAHAN untuk membuka panel -->
++    <FrameLayout
+         android:id="@+id/bubble"
+-        android:layout_width="44dp"
+-        android:layout_height="44dp"
+-        android:alpha="0.95"
+-        android:src="@drawable/ic_bubble"
+-        android:contentDescription="Buka Bracket Live" />
+-
+-    <!-- Mode terbuka -->
++        android:layout_width="54dp"
++        android:layout_height="54dp">
++
++        <ImageView
++            android:id="@+id/bubbleIcon"
++            android:layout_width="44dp"
++            android:layout_height="44dp"
++            android:layout_gravity="center"
++            android:alpha="0.95"
++            android:src="@drawable/ic_bubble"
++            android:contentDescription="Tahan untuk membuka Bracket Live" />
++
++        <com.gamebracket.overlay.HoldRingView
++            android:id="@+id/holdRing"
++            android:layout_width="54dp"
++            android:layout_height="54dp" />
++    </FrameLayout>
++
++    <!-- Mode terbuka: panel hitam transparan -->
+     <LinearLayout
+         android:id="@+id/panel"
+         android:layout_width="320dp"
+         android:layout_height="wrap_content"
+         android:orientation="vertical"
+-        android:padding="2dp"
+-        android:visibility="gone"
+-        android:background="@drawable/bg_overlay_panel">
++        android:visibility="gone">
+ 
+         <LinearLayout
+             android:id="@+id/dragHandle"
+             android:layout_width="match_parent"
+-            android:layout_height="46dp"
++            android:layout_height="50dp"
+             android:orientation="horizontal"
+             android:gravity="center_vertical"
+-            android:paddingStart="10dp"
+-            android:paddingEnd="8dp"
+-            android:background="@drawable/bg_overlay_header">
++            android:paddingStart="12dp"
++            android:paddingEnd="8dp">
+ 
+             <ImageView
+                 android:layout_width="30dp"
+                 android:layout_height="30dp"
+-                android:src="@drawable/ic_logo"
++                android:src="@drawable/ic_logo_mark"
+                 android:contentDescription="Bracket Live" />
+ 
+             <LinearLayout
+@@ -51,39 +60,78 @@
+                     android:layout_height="wrap_content"
+                     android:text="BRACKET LIVE"
+                     android:textColor="#FFFFFF"
+-                    android:textStyle="bold"
+                     android:textSize="12sp"
++                    android:fontFamily="sans-serif-black"
+                     android:letterSpacing="0.1" />
+ 
+-                <TextView
+-                    android:id="@+id/tvOverlayGame"
++                <LinearLayout
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+-                    android:text="—"
+-                    android:textColor="#00E5FF"
+-                    android:textSize="9sp"
+-                    android:textStyle="bold" />
++                    android:layout_marginTop="2dp"
++                    android:orientation="horizontal"
++                    android:gravity="center_vertical">
++
++                    <TextView
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:paddingStart="5dp"
++                        android:paddingEnd="5dp"
++                        android:paddingTop="1dp"
++                        android:paddingBottom="1dp"
++                        android:text="LIVE"
++                        android:textColor="#FFFFFF"
++                        android:textSize="7sp"
++                        android:textStyle="bold"
++                        android:background="@drawable/bg_live_badge" />
++
++                    <TextView
++                        android:id="@+id/tvOverlayGame"
++                        android:layout_width="wrap_content"
++                        android:layout_height="wrap_content"
++                        android:layout_marginStart="6dp"
++                        android:text="—"
++                        android:textColor="#00E5FF"
++                        android:textSize="9sp"
++                        android:fontFamily="sans-serif-condensed"
++                        android:textStyle="bold" />
++                </LinearLayout>
+             </LinearLayout>
+ 
+-            <TextView
++            <ImageView
++                android:id="@+id/btnOpacity"
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:padding="7dp"
++                android:src="@drawable/ic_opacity"
++                android:background="@drawable/bg_ov_btn"
++                android:contentDescription="Ubah transparansi" />
++
++            <ImageView
+                 android:id="@+id/btnMin"
+-                android:layout_width="34dp"
+-                android:layout_height="34dp"
+-                android:gravity="center"
+-                android:text="—"
+-                android:textColor="#FFFFFF"
+-                android:textSize="16sp" />
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:layout_marginStart="6dp"
++                android:padding="7dp"
++                android:src="@drawable/ic_min"
++                android:background="@drawable/bg_ov_btn"
++                android:contentDescription="Perkecil" />
+ 
+-            <TextView
++            <ImageView
+                 android:id="@+id/btnClose"
+-                android:layout_width="34dp"
+-                android:layout_height="34dp"
+-                android:gravity="center"
+-                android:text="×"
+-                android:textColor="#FF4D6D"
+-                android:textSize="20sp" />
++                android:layout_width="32dp"
++                android:layout_height="32dp"
++                android:layout_marginStart="6dp"
++                android:padding="7dp"
++                android:src="@drawable/ic_close"
++                android:background="@drawable/bg_ov_btn"
++                android:contentDescription="Tutup overlay" />
+         </LinearLayout>
+ 
++        <View
++            android:layout_width="match_parent"
++            android:layout_height="1dp"
++            android:background="#26FFFFFF" />
++
+         <com.gamebracket.overlay.MaxHeightScrollView
+             android:id="@+id/overlayScroll"
+             android:layout_width="match_parent"
+@@ -106,17 +154,21 @@
+             android:paddingStart="12dp"
+             android:paddingEnd="12dp"
+             android:paddingBottom="4dp"
+-            android:text="Ketuk angka di samping tim untuk tambah poin · geser bracket ke samping"
+-            android:textColor="#7E89A8"
++            android:text="Ketuk angka untuk tambah poin · geser bracket ke samping"
++            android:textColor="#99FFFFFF"
+             android:textSize="10sp" />
+ 
++        <View
++            android:layout_width="match_parent"
++            android:layout_height="1dp"
++            android:background="#26FFFFFF" />
++
+         <LinearLayout
+             android:layout_width="match_parent"
+             android:layout_height="wrap_content"
+             android:orientation="horizontal"
+             android:gravity="center_vertical"
+-            android:padding="10dp"
+-            android:background="@drawable/bg_overlay_footer">
++            android:padding="10dp">
+ 
+             <LinearLayout
+                 android:layout_width="0dp"
+@@ -127,11 +179,12 @@
+                 <TextView
+                     android:layout_width="wrap_content"
+                     android:layout_height="wrap_content"
+-                    android:text="🏆  JUARA"
++                    android:text="JUARA"
+                     android:textColor="#FFC83D"
+                     android:textSize="9sp"
+                     android:textStyle="bold"
+-                    android:letterSpacing="0.15" />
++                    android:fontFamily="sans-serif-condensed"
++                    android:letterSpacing="0.2" />
+ 
+                 <TextView
+                     android:id="@+id/tvOverlayChamp"
+@@ -139,7 +192,8 @@
+                     android:layout_height="wrap_content"
+                     android:text="—"
+                     android:textColor="#FFFFFF"
+-                    android:textSize="15sp"
++                    android:textSize="16sp"
++                    android:fontFamily="sans-serif-condensed"
+                     android:textStyle="bold"
+                     android:maxLines="1"
+                     android:ellipsize="end" />
+@@ -150,8 +204,8 @@
+                 android:layout_width="wrap_content"
+                 android:layout_height="34dp"
+                 android:gravity="center"
+-                android:paddingStart="14dp"
+-                android:paddingEnd="14dp"
++                android:paddingStart="16dp"
++                android:paddingEnd="16dp"
+                 android:text="Buka App"
+                 android:textColor="#04101C"
+                 android:textSize="11sp"
+diff --git a/app/src/main/res/values/styles.xml b/app/src/main/res/values/styles.xml
+index 21b0374..1163a56 100644
+--- a/app/src/main/res/values/styles.xml
++++ b/app/src/main/res/values/styles.xml
+@@ -3,30 +3,35 @@
+     <!-- Tombol segmen (Slot 4/8/16, Format BO1/BO3/BO5) -->
+     <style name="SegBtn">
+         <item name="android:layout_width">0dp</item>
+-        <item name="android:layout_height">40dp</item>
++        <item name="android:layout_height">42dp</item>
+         <item name="android:layout_weight">1</item>
+         <item name="android:layout_marginEnd">6dp</item>
+         <item name="android:gravity">center</item>
+-        <item name="android:textSize">12sp</item>
++        <item name="android:textSize">13sp</item>
+         <item name="android:textStyle">bold</item>
++        <item name="android:fontFamily">sans-serif-condensed</item>
+         <item name="android:textColor">@color/muted_light</item>
+         <item name="android:background">@drawable/bg_chip</item>
+     </style>
+     <style name="ActionBtn">
+         <item name="android:layout_width">0dp</item>
+-        <item name="android:layout_height">46dp</item>
++        <item name="android:layout_height">48dp</item>
+         <item name="android:layout_weight">1</item>
+         <item name="android:layout_marginEnd">8dp</item>
+         <item name="android:gravity">center</item>
+-        <item name="android:textSize">12sp</item>
++        <item name="android:fontFamily">sans-serif-condensed</item>
++        <item name="android:textSize">13sp</item>
+         <item name="android:textStyle">bold</item>
+     </style>
+     <style name="SectionLabel">
+         <item name="android:layout_width">wrap_content</item>
+         <item name="android:layout_height">wrap_content</item>
+-        <item name="android:textColor">@color/muted</item>
++        <item name="android:textColor">@color/muted_light</item>
+         <item name="android:textSize">10sp</item>
+         <item name="android:textStyle">bold</item>
+-        <item name="android:letterSpacing">0.15</item>
++        <item name="android:fontFamily">sans-serif-condensed</item>
++        <item name="android:letterSpacing">0.18</item>
++        <item name="android:drawableStart">@drawable/bg_label_bar</item>
++        <item name="android:drawablePadding">8dp</item>
+     </style>
+ </resources>
