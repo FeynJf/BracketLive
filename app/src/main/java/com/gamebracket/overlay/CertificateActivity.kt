@@ -16,7 +16,10 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.content.res.ColorStateList
 import android.widget.EditText
+import android.widget.HorizontalScrollView
+import android.widget.SeekBar
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -31,7 +34,7 @@ import java.util.Date
 import java.util.Locale
 
 /** Editor sertifikat: ubah teks, logo, dan tema dengan pratinjau langsung, lalu simpan ke Galeri. */
-class CertificateActivity : AppCompatActivity() {
+class CertificateActivity : BaseActivity() {
 
     private lateinit var ivPreview: ImageView
     private lateinit var form: LinearLayout
@@ -42,6 +45,13 @@ class CertificateActivity : AppCompatActivity() {
     private lateinit var btnChampLogo: TextView
     private lateinit var btnOrgLogo: TextView
     private val themeButtons = mutableListOf<TextView>()
+    private val shapeButtons = mutableListOf<TextView>()
+
+    private val bgPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri == null) return@registerForActivityResult
+        val path = LogoHelper.saveBackground(this, uri)
+        if (path == null) toast("Gambar tidak bisa dibaca") else pickTarget?.invoke(path)
+    }
 
     private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri == null) return@registerForActivityResult
@@ -52,6 +62,10 @@ class CertificateActivity : AppCompatActivity() {
     private val refresh = Runnable {
         latest = CertificateRenderer.render(this, data)
         ivPreview.setImageBitmap(latest)
+        if (Anim.enabled(this)) {
+            ivPreview.alpha = 0.65f
+            ivPreview.animate().alpha(1f).setDuration(220).start()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -91,27 +105,71 @@ class CertificateActivity : AppCompatActivity() {
         form.addView(clearRow)
         updateLogoButtons()
 
-        addLabel("TEMA")
+        addLabel("BENTUK SERTIFIKAT")
+        shapeButtons.clear()
+        val shapeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        CertificateRenderer.shapes.forEachIndexed { i, sh ->
+            val b = smallButton(sh.name) { data.shape = i; updateChips(); schedule() }
+            shapeButtons.add(b)
+            shapeRow.addView(b)
+        }
+        form.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(shapeRow) })
+
+        addLabel("TEMA WARNA")
+        themeButtons.clear()
         val themeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("Neon Gamer" to CertificateRenderer.THEME_NEON, "Klasik Emas" to CertificateRenderer.THEME_CLASSIC).forEach { (label, t) ->
-            val b = smallButton(label) { data.theme = t; updateThemeButtons(); schedule() }
+        CertificateRenderer.themes.forEachIndexed { i, t ->
+            val b = smallButton(t.name) { data.theme = i; updateChips(); schedule() }
+            b.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42)).apply { marginEnd = dp(8); topMargin = dp(6) }
+            b.setPadding(dp(16), 0, dp(16), 0)
             themeButtons.add(b)
             themeRow.addView(b)
         }
-        form.addView(themeRow)
-        updateThemeButtons()
+        form.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(themeRow) })
 
+        addLabel("BACKGROUND SENDIRI")
+        val bgRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        bgRow.addView(smallButton("Pilih gambar") {
+            pickTarget = { p -> data.bgImage = p; schedule() }
+            bgPicker.launch("image/*")
+        })
+        bgRow.addView(smallButton("Hapus background") { data.bgImage = null; schedule() })
+        form.addView(bgRow)
+        val scrimRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
+        scrimRow.addView(TextView(this).apply {
+            text = "Redam gambar"
+            textSize = 11f
+            setTextColor(ContextCompat.getColor(context, R.color.muted_light))
+        })
+        val tvScrim = TextView(this).apply {
+            text = "${data.scrim}%"
+            textSize = 11f
+            setTextColor(ThemeManager.accent1(context))
+            setPadding(dp(10), 0, 0, 0)
+        }
+        scrimRow.addView(SeekBar(this).apply {
+            max = 85
+            progress = data.scrim
+            val tint = ColorStateList.valueOf(ThemeManager.accent1(context))
+            progressTintList = tint
+            thumbTintList = tint
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(10) }
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+                    data.scrim = p
+                    tvScrim.text = "$p%"
+                    if (fromUser) schedule()
+                }
+                override fun onStartTrackingTouch(sb: SeekBar?) {}
+                override fun onStopTrackingTouch(sb: SeekBar?) {}
+            })
+        })
+        scrimRow.addView(tvScrim)
+        form.addView(scrimRow)
+        updateChips()
+
+        Anim.pressAll(window.decorView)
         refresh.run()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        AppVisibility.onStart()
-    }
-
-    override fun onStop() {
-        AppVisibility.onStop()
-        super.onStop()
     }
 
     private fun schedule() {
@@ -124,12 +182,14 @@ class CertificateActivity : AppCompatActivity() {
         btnOrgLogo.text = if (data.orgLogo != null) "Logo penyelenggara ✓" else "Logo penyelenggara"
     }
 
-    private fun updateThemeButtons() {
-        themeButtons.forEachIndexed { i, b ->
-            val on = data.theme == i
+    private fun updateChips() {
+        fun paint(list: List<TextView>, sel: Int) = list.forEachIndexed { i, b ->
+            val on = sel == i
             b.setBackgroundResource(if (on) R.drawable.bg_chip_active else R.drawable.bg_chip)
             b.setTextColor(ContextCompat.getColor(this, if (on) R.color.on_accent else R.color.muted_light))
         }
+        paint(themeButtons, data.theme)
+        paint(shapeButtons, data.shape)
     }
 
     private fun addLabel(text: String) {

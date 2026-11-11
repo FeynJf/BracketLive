@@ -2,15 +2,55 @@ package com.gamebracket.overlay
 
 import android.content.Context
 
-/** Pengaturan sederhana (disimpan di SharedPreferences). */
+/** Semua pengaturan aplikasi (SharedPreferences). */
 object Prefs {
     private fun sp(ctx: Context) = ctx.getSharedPreferences("bracketlive", Context.MODE_PRIVATE)
+    private fun int(ctx: Context, k: String, d: Int) = sp(ctx).getInt(k, d)
+    private fun putInt(ctx: Context, k: String, v: Int) { sp(ctx).edit().putInt(k, v).apply() }
+    private fun bool(ctx: Context, k: String, d: Boolean) = sp(ctx).getBoolean(k, d)
+    private fun putBool(ctx: Context, k: String, v: Boolean) { sp(ctx).edit().putBoolean(k, v).apply() }
+    private fun str(ctx: Context, k: String, d: String) = sp(ctx).getString(k, d) ?: d
+    private fun putStr(ctx: Context, k: String, v: String) { sp(ctx).edit().putString(k, v).apply() }
 
+    // ── Tampilan ──
+    fun themeBase(ctx: Context) = int(ctx, "theme_base", 0)
+    fun setThemeBase(ctx: Context, v: Int) = putInt(ctx, "theme_base", v)
+    fun accent(ctx: Context) = int(ctx, "accent", 0)
+    fun setAccent(ctx: Context, v: Int) = putInt(ctx, "accent", v)
+    fun animations(ctx: Context) = bool(ctx, "animations", true)
+    fun setAnimations(ctx: Context, v: Boolean) = putBool(ctx, "animations", v)
+
+    // ── Overlay ──
     /** Opasitas latar panel overlay, 30..100 (persen). */
-    fun panelOpacity(ctx: Context): Int = sp(ctx).getInt("panel_opacity", 70).coerceIn(30, 100)
-    fun setPanelOpacity(ctx: Context, v: Int) { sp(ctx).edit().putInt("panel_opacity", v.coerceIn(30, 100)).apply() }
+    fun panelOpacity(ctx: Context): Int = int(ctx, "panel_opacity", 70).coerceIn(30, 100)
+    fun setPanelOpacity(ctx: Context, v: Int) = putInt(ctx, "panel_opacity", v.coerceIn(30, 100))
+    /** Lama menahan ikon sebelum panel terbuka (ms, 300..1500). */
+    fun holdMs(ctx: Context): Int = int(ctx, "hold_ms", 700).coerceIn(300, 1500)
+    fun setHoldMs(ctx: Context, v: Int) = putInt(ctx, "hold_ms", v.coerceIn(300, 1500))
+    /** Ukuran overlay (persen, 70..150). */
+    fun overlayScale(ctx: Context): Int = int(ctx, "overlay_scale", 100).coerceIn(70, 150)
+    fun setOverlayScale(ctx: Context, v: Int) = putInt(ctx, "overlay_scale", v.coerceIn(70, 150))
+    fun bubbleStyle(ctx: Context) = int(ctx, "bubble_style", 0)
+    fun setBubbleStyle(ctx: Context, v: Int) = putInt(ctx, "bubble_style", v)
+    fun bubbleIcon(ctx: Context) = int(ctx, "bubble_icon", 0)
+    fun setBubbleIcon(ctx: Context, v: Int) = putInt(ctx, "bubble_icon", v)
+    fun bubbleCustom(ctx: Context): String? = sp(ctx).getString("bubble_custom", null)
+    fun setBubbleCustom(ctx: Context, v: String?) { sp(ctx).edit().putString("bubble_custom", v).apply() }
 
-    /** Lama menahan ikon sebelum panel terbuka, dalam milidetik (300..1500). */
-    fun holdMs(ctx: Context): Int = sp(ctx).getInt("hold_ms", 700).coerceIn(300, 1500)
-    fun setHoldMs(ctx: Context, v: Int) { sp(ctx).edit().putInt("hold_ms", v.coerceIn(300, 1500)).apply() }
+    // ── Turnamen ──
+    /** true = bracket langsung mulai dari semifinal (4 tim). */
+    fun semifinalOnly(ctx: Context) = bool(ctx, "semifinal_only", false)
+    fun setSemifinalOnly(ctx: Context, v: Boolean) = putBool(ctx, "semifinal_only", v)
+    fun killPoint(ctx: Context) = int(ctx, "kill_point", 1)
+    fun setKillPoint(ctx: Context, v: Int) = putInt(ctx, "kill_point", v)
+    fun placementPoints(ctx: Context) = str(ctx, "placement_pts", "12,9,8,7,6,5,4,3,2,1")
+    fun setPlacementPoints(ctx: Context, v: String) = putStr(ctx, "placement_pts", v)
+
+    // ── Koneksi live ──
+    fun feedUrl(ctx: Context) = str(ctx, "feed_url", "")
+    fun setFeedUrl(ctx: Context, v: String) = putStr(ctx, "feed_url", v)
+    fun feedInterval(ctx: Context) = int(ctx, "feed_interval", 10).coerceIn(5, 60)
+    fun setFeedInterval(ctx: Context, v: Int) = putInt(ctx, "feed_interval", v.coerceIn(5, 60))
+    fun feedEnabled(ctx: Context) = bool(ctx, "feed_enabled", false)
+    fun setFeedEnabled(ctx: Context, v: Boolean) = putBool(ctx, "feed_enabled", v)
 }

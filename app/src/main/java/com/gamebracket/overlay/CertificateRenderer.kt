@@ -2,23 +2,58 @@ package com.gamebracket.overlay
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.RectF
 import android.graphics.Shader
 import android.graphics.Typeface
 import androidx.core.content.ContextCompat
+import kotlin.math.min
 
-/** Menggambar sertifikat 1200x850. Semua teks bisa diedit lewat [Data]. */
+/**
+ * Menggambar sertifikat. Bentuk (landscape/portrait/persegi/16:9), tema warna, dan background
+ * gambar sendiri bisa diatur lewat [Data].
+ */
 object CertificateRenderer {
 
-    const val W = 1200
-    const val H = 850
+    class Shape(val name: String, val w: Int, val h: Int)
 
-    const val THEME_NEON = 0
-    const val THEME_CLASSIC = 1
+    val shapes = listOf(
+        Shape("Landscape", 1200, 850),
+        Shape("Portrait", 850, 1200),
+        Shape("Persegi", 1080, 1080),
+        Shape("Layar 16:9", 1280, 720)
+    )
+
+    class Palette(
+        val name: String,
+        val bg1: Int, val bg2: Int, val acc1: Int, val acc2: Int, val line: Int,
+        val title: Int, val text: Int, val nameColor: Int, val gold: Int, val ink: Int,
+        val serif: Boolean, val light: Boolean
+    )
+
+    private fun c(s: String) = Color.parseColor(s)
+
+    val themes = listOf(
+        Palette("Neon Gamer", c("#141C4A"), c("#05060F"), c("#00E5FF"), c("#FF2E88"), c("#2A3560"),
+            Color.WHITE, c("#A9B4D4"), Color.WHITE, c("#FFC83D"), c("#E8F1FF"), false, false),
+        Palette("Klasik Emas", c("#FFFDF5"), c("#F1E7CC"), c("#C9A227"), c("#8B6B14"), c("#B89B4A"),
+            c("#5C4A1F"), c("#6B5E40"), c("#1A1A1A"), c("#A8841A"), c("#0D1B3D"), true, true),
+        Palette("Royal Ungu", c("#2A1566"), c("#0B0620"), c("#B388FF"), c("#FF4DA6"), c("#4A3290"),
+            Color.WHITE, c("#C9BCF2"), Color.WHITE, c("#FFD76A"), c("#F3ECFF"), true, false),
+        Palette("Api Crimson", c("#3A0A12"), c("#0F0306"), c("#FF8A00"), c("#FF2E4D"), c("#6A1A26"),
+            Color.WHITE, c("#F0C0C6"), Color.WHITE, c("#FFC83D"), c("#FFF1E6"), false, false),
+        Palette("Zamrud", c("#0B3A2D"), c("#03120D"), c("#00E5A0"), c("#00B3FF"), c("#1D6B55"),
+            Color.WHITE, c("#B5E8D6"), Color.WHITE, c("#FFE27A"), c("#E6FFF5"), false, false),
+        Palette("Carbon Gold", c("#1A1A1A"), c("#000000"), c("#FFC83D"), c("#C68A00"), c("#4A3D18"),
+            c("#FFE9A8"), c("#BDB6A3"), Color.WHITE, c("#FFC83D"), c("#FFF3CC"), true, false),
+        Palette("Putih Bersih", c("#FFFFFF"), c("#EEF3FB"), c("#2979FF"), c("#00B8D4"), c("#C9D6EE"),
+            c("#10224A"), c("#51607F"), c("#0B1530"), c("#E08A00"), c("#0A1A44"), false, true)
+    )
 
     class Data(
         var title: String = "SERTIFIKAT JUARA",
@@ -30,25 +65,11 @@ object CertificateRenderer {
         var signerRole: String = "Ketua Panitia",
         var championLogo: String? = null,
         var orgLogo: String? = null,
-        var theme: Int = THEME_NEON
-    )
-
-    private class Palette(
-        val bg1: Int, val bg2: Int, val acc1: Int, val acc2: Int, val line: Int,
-        val title: Int, val text: Int, val name: Int, val gold: Int, val ink: Int, val serif: Boolean
-    )
-
-    private val neon = Palette(
-        Color.parseColor("#141C4A"), Color.parseColor("#05060F"),
-        Color.parseColor("#00E5FF"), Color.parseColor("#FF2E88"), Color.parseColor("#2A3560"),
-        Color.WHITE, Color.parseColor("#A9B4D4"), Color.WHITE, Color.parseColor("#FFC83D"),
-        Color.parseColor("#E8F1FF"), false
-    )
-    private val classic = Palette(
-        Color.parseColor("#FFFDF5"), Color.parseColor("#F1E7CC"),
-        Color.parseColor("#C9A227"), Color.parseColor("#8B6B14"), Color.parseColor("#B89B4A"),
-        Color.parseColor("#5C4A1F"), Color.parseColor("#6B5E40"), Color.parseColor("#1A1A1A"),
-        Color.parseColor("#A8841A"), Color.parseColor("#0D1B3D"), true
+        var theme: Int = 0,
+        var shape: Int = 0,
+        var bgImage: String? = null,
+        /** 0..85: seberapa gelap/terang lapisan di atas gambar latar supaya teks tetap terbaca */
+        var scrim: Int = 45
     )
 
     private var signFace: Typeface? = null
@@ -66,68 +87,103 @@ object CertificateRenderer {
     }
 
     fun render(ctx: Context, d: Data): Bitmap {
-        val pal = if (d.theme == THEME_CLASSIC) classic else neon
-        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
-        val c = Canvas(bmp)
-        val p = Paint(Paint.ANTI_ALIAS_FLAG)
+        val pal = themes[d.theme.coerceIn(0, themes.size - 1)]
+        val shape = shapes[d.shape.coerceIn(0, shapes.size - 1)]
+        val W = shape.w
+        val H = shape.h
         val w = W.toFloat()
         val h = H.toFloat()
+        // desain dasar 1200x850: ukuran mengikuti skala s, posisi vertikal mengikuti tinggi kanvas
+        val s = min(w / 1200f, h / 850f)
+        fun fy(y: Float) = y / 850f * h
+
+        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
+        val cv = Canvas(bmp)
+        val p = Paint(Paint.ANTI_ALIAS_FLAG)
         val face = if (pal.serif) Typeface.SERIF else Typeface.SANS_SERIF
 
-        // latar
+        // latar warna
         p.shader = LinearGradient(0f, 0f, w, h, pal.bg1, pal.bg2, Shader.TileMode.CLAMP)
-        c.drawRect(0f, 0f, w, h, p)
+        cv.drawRect(0f, 0f, w, h, p)
         p.shader = null
 
-        // motif bracket samar di sudut
+        // gambar latar sendiri (center-crop) + lapisan peredam
+        val bgPath = d.bgImage
+        if (!bgPath.isNullOrEmpty()) {
+            val src = try { BitmapFactory.decodeFile(bgPath) } catch (e: Exception) { null }
+            if (src != null) {
+                val scale = maxOf(w / src.width, h / src.height)
+                val sw = w / scale
+                val sh = h / scale
+                val left = ((src.width - sw) / 2f).toInt()
+                val top = ((src.height - sh) / 2f).toInt()
+                cv.drawBitmap(src, Rect(left, top, (left + sw).toInt(), (top + sh).toInt()), RectF(0f, 0f, w, h), Paint(Paint.FILTER_BITMAP_FLAG))
+                val a = (d.scrim.coerceIn(0, 85) * 255 / 100)
+                p.color = if (pal.light) Color.argb(a, 255, 255, 255) else Color.argb(a, 0, 0, 0)
+                cv.drawRect(0f, 0f, w, h, p)
+            }
+        }
+
+        // motif bracket samar
         p.style = Paint.Style.STROKE
-        p.strokeWidth = 3f
-        p.color = withAlpha(pal.acc1, 28)
-        c.drawLines(floatArrayOf(60f, 650f, 130f, 650f, 130f, 650f, 130f, 720f, 60f, 720f, 130f, 720f, 130f, 685f, 200f, 685f), p)
-        c.drawLines(floatArrayOf(w - 60f, 430f, w - 130f, 430f, w - 130f, 430f, w - 130f, 500f, w - 60f, 500f, w - 130f, 500f, w - 130f, 465f, w - 200f, 465f), p)
+        p.strokeWidth = 3f * s
+        p.color = withAlpha(pal.acc1, 30)
+        val m = 60f * s
+        cv.drawLines(floatArrayOf(m, h - 200f * s, m + 70f * s, h - 200f * s, m + 70f * s, h - 200f * s, m + 70f * s, h - 130f * s,
+            m, h - 130f * s, m + 70f * s, h - 130f * s, m + 70f * s, h - 165f * s, m + 140f * s, h - 165f * s), p)
+        cv.drawLines(floatArrayOf(w - m, fy(430f), w - m - 70f * s, fy(430f), w - m - 70f * s, fy(430f), w - m - 70f * s, fy(500f),
+            w - m, fy(500f), w - m - 70f * s, fy(500f), w - m - 70f * s, fy(465f), w - m - 140f * s, fy(465f)), p)
 
         // bingkai
-        p.strokeWidth = 6f
+        p.strokeWidth = 6f * s
         p.shader = LinearGradient(0f, 0f, w, h, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
-        c.drawRoundRect(RectF(24f, 24f, w - 24f, h - 24f), 28f, 28f, p)
+        cv.drawRoundRect(RectF(24f * s, 24f * s, w - 24f * s, h - 24f * s), 28f * s, 28f * s, p)
         p.shader = null
-        p.strokeWidth = 1.5f
+        p.strokeWidth = 1.5f * s
         p.color = pal.line
-        c.drawRoundRect(RectF(46f, 46f, w - 46f, h - 46f), 18f, 18f, p)
+        cv.drawRoundRect(RectF(46f * s, 46f * s, w - 46f * s, h - 46f * s), 18f * s, 18f * s, p)
         p.style = Paint.Style.FILL
 
         // logo penyelenggara (kiri atas) & logo Bracket Live (kanan atas)
-        if (!d.orgLogo.isNullOrEmpty()) drawLogoRing(c, LogoHelper.circleBitmap("", d.orgLogo, 192), 140f, 140f, 48f, pal)
+        val topY = 140f * s
+        if (!d.orgLogo.isNullOrEmpty()) {
+            val px = (192 * s).toInt().coerceAtLeast(64)
+            logoRing(cv, LogoHelper.circleBitmap("", d.orgLogo, px), 140f * s, topY, 48f * s, pal, s)
+        }
         ContextCompat.getDrawable(ctx, R.drawable.ic_logo)?.let {
-            it.setBounds(W - 190, 92, W - 94, 188)
-            it.draw(c)
+            val half = 48f * s
+            it.setBounds((w - 142f * s - half).toInt(), (topY - half).toInt(), (w - 142f * s + half).toInt(), (topY + half).toInt())
+            it.draw(cv)
         }
 
         // judul
-        text(c, "BRACKET LIVE", 600f, 118f, 20f, pal.acc1, face, true, 0.45f)
-        fit(c, d.title.uppercase(), 600f, 205f, 62f, 760f, pal.title, face, true, 0.1f)
-        p.shader = LinearGradient(470f, 0f, 730f, 0f, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
-        c.drawRoundRect(RectF(470f, 228f, 730f, 233f), 3f, 3f, p)
+        text(cv, "BRACKET LIVE", w / 2, fy(118f), 20f * s, pal.acc1, face, true, 0.45f)
+        fit(cv, d.title.uppercase(), w / 2, fy(205f), 62f * s, 760f * s, pal.title, face, true, 0.1f)
+        p.shader = LinearGradient(w / 2 - 130f * s, 0f, w / 2 + 130f * s, 0f, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
+        cv.drawRoundRect(RectF(w / 2 - 130f * s, fy(228f), w / 2 + 130f * s, fy(228f) + 5f * s), 3f, 3f, p)
         p.shader = null
 
         // logo juara
         val champName = d.name.ifBlank { "?" }
         val big = LogoHelper.circleBitmap(champName, d.championLogo, 280)
-        drawLogoRing(c, big, 600f, 335f, 72f, pal)
+        logoRing(cv, big, w / 2, fy(335f), 72f * s, pal, s)
 
-        text(c, "diberikan kepada", 600f, 455f, 22f, pal.text, face, false, 0.08f)
-        fit(c, d.name.ifBlank { "—" }, 600f, 535f, 70f, 940f, pal.name, face, true, 0f)
-        p.shader = LinearGradient(250f, 0f, 950f, 0f, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
-        c.drawRoundRect(RectF(250f, 560f, 950f, 563f), 2f, 2f, p)
+        text(cv, "diberikan kepada", w / 2, fy(455f), 22f * s, pal.text, face, false, 0.08f)
+        fit(cv, d.name.ifBlank { "—" }, w / 2, fy(535f), 70f * s, w - 260f * s, pal.nameColor, face, true, 0f)
+        p.shader = LinearGradient(w * 0.2f, 0f, w * 0.8f, 0f, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
+        cv.drawRoundRect(RectF(w * 0.2f, fy(560f), w * 0.8f, fy(560f) + 3f * s), 2f, 2f, p)
         p.shader = null
 
-        fit(c, d.ranking.uppercase(), 600f, 620f, 34f, 900f, pal.gold, face, true, 0.15f)
-        fit(c, d.event, 600f, 662f, 24f, 900f, pal.text, face, false, 0.03f)
+        fit(cv, d.ranking.uppercase(), w / 2, fy(620f), 34f * s, w - 300f * s, pal.gold, face, true, 0.15f)
+        fit(cv, d.event, w / 2, fy(662f), 24f * s, w - 300f * s, pal.text, face, false, 0.03f)
 
-        // blok tanggal (kiri) & tanda tangan (kanan)
-        text(c, d.date, 300f, 722f, 28f, pal.name, face, false, 0f)
-        line(c, 150f, 735f, 450f, 735f, pal)
-        text(c, "Tanggal", 300f, 772f, 18f, pal.text, face, false, 0.1f)
+        // tanggal (kiri) & tanda tangan (kanan)
+        val lx = w * 0.25f
+        val rx = w * 0.75f
+        val half = 150f * s
+        text(cv, d.date, lx, fy(722f), 28f * s, pal.nameColor, face, false, 0f)
+        line(cv, lx - half, fy(735f), lx + half, fy(735f), pal, s)
+        text(cv, "Tanggal", lx, fy(772f), 18f * s, pal.text, face, false, 0.1f)
 
         // tanda tangan: nama diketik → tampil tegak bersambung
         val sig = d.signer.trim()
@@ -135,39 +191,36 @@ object CertificateRenderer {
             p.typeface = signatureFace(ctx)
             p.color = pal.ink
             p.textAlign = Paint.Align.CENTER
-            var size = 92f
+            var size = 92f * s
             p.textSize = size
-            while (p.measureText(sig) > 330f && size > 30f) { size -= 2f; p.textSize = size }
-            c.drawText(sig, 900f, 724f, p)
+            while (p.measureText(sig) > half * 2.2f && size > 30f * s) { size -= 2f; p.textSize = size }
+            cv.drawText(sig, rx, fy(724f), p)
         }
-        line(c, 750f, 735f, 1050f, 735f, pal)
-        text(c, sig.ifBlank { "Nama Panitia" }, 900f, 770f, 22f, pal.name, face, true, 0f)
-        text(c, d.signerRole, 900f, 796f, 17f, pal.text, face, false, 0.05f)
+        line(cv, rx - half, fy(735f), rx + half, fy(735f), pal, s)
+        fit(cv, sig.ifBlank { "Nama Panitia" }, rx, fy(770f), 22f * s, half * 2f, pal.nameColor, face, true, 0f)
+        fit(cv, d.signerRole, rx, fy(796f), 17f * s, half * 2f, pal.text, face, false, 0.05f)
 
-        text(c, "dibuat dengan Bracket Live", 600f, 792f, 14f, withAlpha(pal.text, 170), face, false, 0.1f)
+        text(cv, "dibuat dengan Bracket Live", w / 2, fy(792f), 14f * s, withAlpha(pal.text, 170), face, false, 0.1f)
         return bmp
     }
 
     private fun withAlpha(color: Int, a: Int) = Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
 
-    private fun line(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, pal: Palette) {
+    private fun line(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, pal: Palette, s: Float) {
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        p.strokeWidth = 2f
+        p.strokeWidth = 2f * s
         p.color = pal.line
         c.drawLine(x1, y1, x2, y2, p)
     }
 
-    private fun drawLogoRing(c: Canvas, bmp: Bitmap, cx: Float, cy: Float, r: Float, pal: Palette) {
+    private fun logoRing(c: Canvas, bmp: Bitmap, cx: Float, cy: Float, r: Float, pal: Palette, s: Float) {
         val p = Paint(Paint.ANTI_ALIAS_FLAG)
-        // cincin neon
         p.style = Paint.Style.STROKE
-        p.strokeWidth = 6f
+        p.strokeWidth = 6f * s
         p.shader = LinearGradient(cx - r, cy - r, cx + r, cy + r, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
-        c.drawCircle(cx, cy, r + 8f, p)
+        c.drawCircle(cx, cy, r + 8f * s, p)
         p.shader = null
-        p.style = Paint.Style.FILL
-        val dst = RectF(cx - r, cy - r, cx + r, cy + r)
-        c.drawBitmap(bmp, null, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
+        c.drawBitmap(bmp, null, RectF(cx - r, cy - r, cx + r, cy + r), Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
     }
 
     private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, face: Typeface, bold: Boolean, spacing: Float) {
@@ -187,7 +240,7 @@ object CertificateRenderer {
         p.letterSpacing = spacing
         var sz = size
         p.textSize = sz
-        while (p.measureText(s) > maxW && sz > 14f) { sz -= 2f; p.textSize = sz }
+        while (p.measureText(s) > maxW && sz > 12f) { sz -= 2f; p.textSize = sz }
         p.color = color
         p.textAlign = Paint.Align.CENTER
         c.drawText(s, x, y, p)

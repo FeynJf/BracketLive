@@ -41,6 +41,21 @@
         android:hint="Nama tim"
         android:textColorHint="@color/dim" />
 
+    <TextView
+        android:id="@+id/btnRoster"
+        android:layout_width="wrap_content"
+        android:layout_height="34dp"
+        android:layout_marginEnd="6dp"
+        android:gravity="center"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp"
+        android:text="👥 0/8"
+        android:textColor="@color/muted_light"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        android:background="@drawable/bg_chip" />
+
     <EditText
         android:id="@+id/etScore"
         android:layout_width="56dp"
@@ -48,7 +63,7 @@
         android:gravity="center"
         android:inputType="number"
         android:text="0"
-        android:textColor="@color/cyan"
+        android:textColor="?attr/blAccent1"
         android:textStyle="bold"
         android:textSize="15sp"
         android:background="@drawable/bg_input" />

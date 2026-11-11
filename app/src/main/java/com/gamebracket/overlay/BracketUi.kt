@@ -17,6 +17,9 @@ import androidx.core.content.ContextCompat
  */
 object BracketUi {
 
+    /** Slot yang baru berubah → badge skornya memantul sekali setelah digambar ulang. */
+    var popKey: String? = null
+
     class Config(
         val cardWidthDp: Int,
         val rowHeightDp: Int,
@@ -36,7 +39,8 @@ object BracketUi {
         container: LinearLayout,
         cfg: Config,
         pickLogo: ((Int) -> Unit)?,
-        onWin: (String?) -> Unit
+        onWin: (String?) -> Unit,
+        rosterSlot: ((Int) -> Unit)? = null
     ) {
         container.removeAllViews()
         val d = ctx.resources.displayMetrics.density
@@ -48,6 +52,7 @@ object BracketUi {
         val labelH = dp(28)
         val baseSlot = rowH * 2 + dp(18)
         val rounds = BracketStore.rounds()
+        val accent = ThemeManager.accent1(ctx)
 
         for (r in 0 until rounds) {
             val slotH = baseSlot * (1 shl r)
@@ -56,7 +61,7 @@ object BracketUi {
             val column = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
             column.addView(TextView(ctx).apply {
                 text = BracketStore.roundName(r)
-                setTextColor(col(R.color.cyan))
+                setTextColor(accent)
                 textSize = 9.5f
                 letterSpacing = 0.12f
                 gravity = Gravity.CENTER
@@ -67,7 +72,7 @@ object BracketUi {
 
             for (m in 0 until matches) {
                 val slot = FrameLayout(ctx).apply { layoutParams = LinearLayout.LayoutParams(cardW, slotH) }
-                val card = buildMatch(ctx, r, m, cfg, rowH, pickLogo, onWin)
+                val card = buildMatch(ctx, r, m, cfg, rowH, pickLogo, onWin, rosterSlot)
                 card.layoutParams = FrameLayout.LayoutParams(cardW, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL)
                 slot.addView(card)
                 column.addView(slot)
@@ -77,6 +82,7 @@ object BracketUi {
             if (r < rounds - 1) {
                 val decided = BooleanArray(matches) { BracketStore.winners["r${r}m$it"] != null }
                 val conn = BracketConnectorView(ctx)
+                conn.onColor = accent
                 conn.layoutParams = LinearLayout.LayoutParams(dp(cfg.connectorDp), labelH + matches * slotH)
                 conn.setData(matches / 2, slotH, labelH, decided)
                 container.addView(conn)
@@ -86,11 +92,12 @@ object BracketUi {
 
     private fun buildMatch(
         ctx: Context, r: Int, m: Int, cfg: Config, rowH: Int,
-        pickLogo: ((Int) -> Unit)?, onWin: (String?) -> Unit
+        pickLogo: ((Int) -> Unit)?, onWin: (String?) -> Unit, rosterSlot: ((Int) -> Unit)?
     ): View {
         val d = ctx.resources.displayMetrics.density
         fun dp(v: Int) = (v * d).toInt()
         fun col(id: Int) = ContextCompat.getColor(ctx, id)
+        val accent = ThemeManager.accent1(ctx)
 
         val key = "r${r}m$m"
         val sc = BracketStore.series[key] ?: intArrayOf(0, 0)
@@ -108,11 +115,11 @@ object BracketUi {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, rowH)
-                if (isWin) setBackgroundColor(Color.parseColor("#1500E5FF"))
+                if (isWin) setBackgroundColor(ThemeManager.withAlpha(accent, 0x1A))
             }
             // aksen kiri untuk pemenang
             row.addView(View(ctx).apply {
-                setBackgroundColor(if (isWin) col(R.color.cyan) else Color.TRANSPARENT)
+                setBackgroundColor(if (isWin) accent else Color.TRANSPARENT)
                 layoutParams = LinearLayout.LayoutParams(dp(3), LinearLayout.LayoutParams.MATCH_PARENT)
             })
             // logo tim
@@ -122,18 +129,19 @@ object BracketUi {
                 layoutParams = LinearLayout.LayoutParams(px, px).apply { marginStart = dp(8); marginEnd = dp(6) }
                 alpha = if (winner != null && !isWin) 0.45f else 1f
                 if (r == 0 && pickLogo != null) setOnClickListener { pickLogo(slotIndex) }
+                if (r == 0 && rosterSlot != null) setOnLongClickListener { rosterSlot(slotIndex); true }
             }
             row.addView(logo)
 
             val nameColor = when {
-                isWin -> R.color.cyan
-                winner != null -> R.color.dim
-                else -> R.color.text
+                isWin -> accent
+                winner != null -> col(R.color.dim)
+                else -> col(R.color.text)
             }
             if (r == 0) {
                 row.addView(EditText(ctx).apply {
                     setText(name)
-                    setTextColor(col(nameColor))
+                    setTextColor(nameColor)
                     setHintTextColor(col(R.color.dim))
                     hint = "Nama tim"
                     textSize = cfg.textSp
@@ -155,7 +163,7 @@ object BracketUi {
             } else {
                 row.addView(TextView(ctx).apply {
                     text = name.ifBlank { "—" }
-                    setTextColor(col(nameColor))
+                    setTextColor(nameColor)
                     textSize = cfg.textSp
                     setTypeface(null, Typeface.BOLD)
                     maxLines = 1
@@ -172,9 +180,11 @@ object BracketUi {
                 setTypeface(null, Typeface.BOLD)
                 setBackgroundResource(if (isWin) R.drawable.bg_btn_primary else cfg.chipBg)
                 layoutParams = LinearLayout.LayoutParams(dp(32), dp(26)).apply { marginStart = dp(4); marginEnd = dp(6) }
-                setOnClickListener { onWin(BracketStore.registerWin(r, m, s)) }
+                val pk = "r${r}m${m}s$s"
+                setOnClickListener { popKey = pk; onWin(BracketStore.registerWin(r, m, s)) }
+                if (popKey == pk) { popKey = null; post { Anim.pop(this) } }
             })
-            if (r > 0) row.setOnClickListener { onWin(BracketStore.registerWin(r, m, s)) }
+            if (r > 0) row.setOnClickListener { popKey = "r${r}m${m}s$s"; onWin(BracketStore.registerWin(r, m, s)) }
             box.addView(row)
 
             if (s == 0) box.addView(View(ctx).apply {

@@ -4,8 +4,9 @@ package com.gamebracket.overlay
  * Shared tournament state — native, no HTML.
  */
 object BracketStore {
-    data class Team(var name: String, var score: Int = 0, var logo: String? = null)
-    data class Mode(val id: String, val name: String, val type: String) // br | bracket
+    data class Team(var name: String, var score: Int = 0, var logo: String? = null, var members: MutableList<String> = mutableListOf())
+    /** type: br (poin/ranking) | bracket (eliminasi). members > 0 = tim punya roster anggota (mis. 8). */
+    data class Mode(val id: String, val name: String, val type: String, val members: Int = 0)
 
     val games = linkedMapOf(
         "freefire" to ("Free Fire" to listOf(
@@ -35,6 +36,15 @@ object BracketStore {
         ))
     )
 
+    init {
+        // Mode 8 anggota: CRF System (sistem poin) & Eliminasi (bracket)
+        val extra = listOf(
+            Mode("crf", "CRF System (8 Anggota)", "br", 8),
+            Mode("elim8", "Eliminasi (8 Anggota)", "bracket", 8)
+        )
+        for ((id, pair) in games.entries.toList()) games[id] = pair.first to (pair.second + extra)
+    }
+
     var gameId: String? = null
     var mode: Mode? = null
     var size: Int = 8
@@ -44,6 +54,8 @@ object BracketStore {
     var players: MutableList<String> = MutableList(8) { "Tim ${it + 1}" }
     /** path logo untuk tiap slot bracket (sejajar dengan [players]) */
     var playerLogos: MutableList<String?> = MutableList(8) { null }
+    /** roster anggota tiap slot bracket (sejajar dengan [players]) */
+    var playerMembers: MutableList<MutableList<String>> = MutableList(8) { mutableListOf() }
     /** matchKey "r{r}m{m}" -> winner slot 0/1 */
     var winners: MutableMap<String, Int> = mutableMapOf()
     /** series scores */
@@ -73,13 +85,16 @@ object BracketStore {
         val order = players.indices.shuffled()
         val np = order.map { players[it] }
         val nl = order.map { playerLogos[it] }
+        val nm = order.map { playerMembers[it] }
         players = np.toMutableList()
         playerLogos = nl.toMutableList()
+        playerMembers = nm.toMutableList()
     }
 
     fun replacePlayers(names: List<String>) {
         players = names.toMutableList()
         playerLogos = MutableList(players.size) { null }
+        playerMembers = MutableList(players.size) { mutableListOf() }
         ensurePlayers()
     }
 
@@ -105,6 +120,8 @@ object BracketStore {
         while (players.size > size) players.removeAt(players.lastIndex)
         while (playerLogos.size < players.size) playerLogos.add(null)
         while (playerLogos.size > players.size) playerLogos.removeAt(playerLogos.lastIndex)
+        while (playerMembers.size < players.size) playerMembers.add(mutableListOf())
+        while (playerMembers.size > players.size) playerMembers.removeAt(playerMembers.lastIndex)
     }
 
     /** Nama babak: ROUND OF 16 / QUARTERFINAL / SEMIFINAL / FINAL */

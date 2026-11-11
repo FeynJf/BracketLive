@@ -22,6 +22,7 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.GridLayout
@@ -43,7 +44,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : BaseActivity() {
 
     private lateinit var tvGameTag: TextView
     private lateinit var tvStatus: TextView
@@ -72,6 +73,8 @@ class MainActivity : AppCompatActivity() {
             if (path != null) pickTarget?.invoke(path) else status("Gambar tidak bisa dibaca")
         }
     }
+
+    private var lastChampion: String? = null
 
     companion object {
         private var updateChecked = false
@@ -111,7 +114,7 @@ class MainActivity : AppCompatActivity() {
             val w = live.paint.measureText(live.text.toString())
             live.paint.shader = LinearGradient(
                 0f, 0f, w, 0f,
-                intArrayOf(col(R.color.cyan), col(R.color.magenta)), null, Shader.TileMode.CLAMP
+                intArrayOf(ThemeManager.accent1(this), ThemeManager.accent2(this)), null, Shader.TileMode.CLAMP
             )
             live.invalidate()
         }
@@ -143,21 +146,56 @@ class MainActivity : AppCompatActivity() {
             updateChecked = true
             updater.check(false)
         }
+        if (Prefs.feedEnabled(this) && !LiveFeed.running) LiveFeed.start(this)
+
+        // animasi masuk + efek tekan
+        Anim.enterChildren(findViewById<ViewGroup>(R.id.contentContainer), 120, 70)
+        Anim.pressAll(window.decorView)
     }
 
     override fun onStart() {
         super.onStart()
-        AppVisibility.onStart()
+        LiveFeed.setListener("main") { changed -> runOnUiThread { onFeedUpdate(changed) } }
     }
 
     override fun onStop() {
-        AppVisibility.onStop()
+        LiveFeed.setListener("main", null)
         super.onStop()
+    }
+
+    /** Data dari Live Connect masuk: tim terdeteksi & poin diperbarui otomatis. */
+    private fun onFeedUpdate(changed: Boolean) {
+        if (LiveFeed.running) status(LiveFeed.status)
+        if (!changed) return
+        // jangan menggambar ulang saat pengguna sedang mengetik
+        if (currentFocus is EditText && emptyState.visibility != View.VISIBLE) return
+        val m = BracketStore.mode
+        if (m != null && emptyState.visibility == View.VISIBLE) {
+            val gid = BracketStore.gameId
+            if (gid != null) {
+                tvGameTag.text = BracketStore.games[gid]?.first ?: gid
+                gameButtons.forEach { (k, v) -> styleChoice(v, k == gid) }
+                buildModes(gid)
+            }
+            applyModeUi(m)
+        } else {
+            refreshFromStore()
+        }
     }
 
     override fun onResume() {
         super.onResume()
         updater.onResume()
+        // "Langsung semifinal" diaktifkan di Pengaturan → bracket menyesuaikan jadi 4 tim
+        val cur = BracketStore.mode
+        if (cur != null && cur.type != "br" && Prefs.semifinalOnly(this) && BracketStore.size != 4) {
+            BracketStore.size = 4
+            BracketStore.resetMatches()
+            BracketStore.ensurePlayers()
+            applyModeUi(cur)
+            return
+        }
+        updateSizeChips()
         // Data bisa berubah dari overlay → segarkan tampilan
         refreshFromStore()
     }
@@ -168,6 +206,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.btnGame).setOnClickListener {
             panelGame.visibility = View.VISIBLE
             panelMode.visibility = View.GONE
+            Anim.reveal(panelGame)
         }
         findViewById<TextView>(R.id.btnMode).setOnClickListener {
             if (BracketStore.gameId == null) {
@@ -175,6 +214,7 @@ class MainActivity : AppCompatActivity() {
             }
             panelMode.visibility = View.VISIBLE
             panelGame.visibility = View.GONE
+            Anim.reveal(panelMode)
         }
         findViewById<TextView>(R.id.btnSize4).setOnClickListener { setSize(4) }
         findViewById<TextView>(R.id.btnSize8).setOnClickListener { setSize(8) }
@@ -199,6 +239,7 @@ class MainActivity : AppCompatActivity() {
             setMargins(dp(4), dp(4), dp(4), dp(4))
         }
         setOnClickListener { onClick() }
+        Anim.pressable(this)
     }
 
     private fun styleChoice(tv: TextView, active: Boolean) {
@@ -235,6 +276,7 @@ class MainActivity : AppCompatActivity() {
         gameButtons.forEach { (k, v) -> styleChoice(v, k == id) }
         buildModes(id)
         panelMode.visibility = View.VISIBLE
+        Anim.reveal(panelMode)
         // otomatis pilih mode pertama
         BracketStore.games[id]?.second?.firstOrNull()?.let { selectMode(it) }
         status("Game: $name")
@@ -257,11 +299,13 @@ class MainActivity : AppCompatActivity() {
             bracketScroll.visibility = View.GONE
             renderTeams()
         } else {
-            // bracket eliminasi harus pangkat 2
-            if (Integer.bitCount(BracketStore.size) != 1) {
+            // bracket eliminasi harus pangkat 2; mode "langsung semifinal" (Pengaturan) = 4 tim
+            if (Prefs.semifinalOnly(this)) {
+                BracketStore.size = 4
+            } else if (Integer.bitCount(BracketStore.size) != 1) {
                 BracketStore.size = 8
-                updateSizeChips()
             }
+            updateSizeChips()
             BracketStore.ensurePlayers()
             teamList.visibility = View.GONE
             bracketScroll.visibility = View.VISIBLE
@@ -269,15 +313,21 @@ class MainActivity : AppCompatActivity() {
         }
         champBox.visibility = View.VISIBLE
         updateChampion()
+        Anim.reveal(if (mode.type == "br") teamList else bracketScroll)
     }
 
     private fun refreshFromStore() {
         val m = BracketStore.mode ?: return
+        if (emptyState.visibility == View.VISIBLE) { applyModeUi(m); return }
         if (m.type == "br") renderTeams() else renderBracket()
         updateChampion()
     }
 
     private fun setSize(n: Int) {
+        if (Prefs.semifinalOnly(this) && BracketStore.mode?.type != "br") {
+            status("Mode langsung semifinal aktif (ubah di Pengaturan → Turnamen)")
+            return
+        }
         BracketStore.size = n
         BracketStore.resetMatches()
         updateSizeChips()
@@ -294,7 +344,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateSizeChips() {
         listOf(4 to R.id.btnSize4, 8 to R.id.btnSize8, 16 to R.id.btnSize16).forEach { (v, id) ->
-            styleChoice(findViewById(id), BracketStore.size == v)
+            val chip = findViewById<TextView>(id)
+            styleChoice(chip, BracketStore.size == v)
+            val locked = Prefs.semifinalOnly(this) && BracketStore.mode?.type != "br" && v != 4
+            chip.alpha = if (locked) 0.35f else 1f
         }
     }
 
@@ -316,6 +369,18 @@ class MainActivity : AppCompatActivity() {
             val etScore = row.findViewById<EditText>(R.id.etScore)
             val btnDel = row.findViewById<TextView>(R.id.btnDel)
             val ivLogo = row.findViewById<ImageView>(R.id.ivLogo)
+            val btnRoster = row.findViewById<TextView>(R.id.btnRoster)
+            val rosterSize = BracketStore.mode?.members ?: 0
+            if (rosterSize > 0) {
+                btnRoster.visibility = View.VISIBLE
+                btnRoster.text = "👥 ${team.members.count { it.isNotBlank() }}/$rosterSize"
+                btnRoster.setOnClickListener {
+                    RosterDialog.show(this, "Anggota ${team.name}", rosterSize, team.members) { list ->
+                        BracketStore.teams[idx].members = list.toMutableList()
+                        renderTeams()
+                    }
+                }
+            }
             ivLogo.setImageDrawable(LogoHelper.drawable(this, team.name, team.logo, dp(36)))
             ivLogo.setOnClickListener {
                 pickLogo { path ->
@@ -354,6 +419,7 @@ class MainActivity : AppCompatActivity() {
             }
             teamList.addView(row)
         }
+        Anim.pressAll(teamList)
     }
 
     private fun renderBracket() {
@@ -370,7 +436,15 @@ class MainActivity : AppCompatActivity() {
             onWin = { msg ->
                 msg?.let { status(it) }
                 renderBracket()
-            }
+            },
+            rosterSlot = if ((BracketStore.mode?.members ?: 0) > 0) { slot ->
+                val size = BracketStore.mode?.members ?: 0
+                BracketStore.ensurePlayers()
+                RosterDialog.show(this, "Anggota ${BracketStore.players[slot]}", size, BracketStore.playerMembers[slot]) { list ->
+                    BracketStore.playerMembers[slot] = list.toMutableList()
+                    status("Roster ${BracketStore.players[slot]} disimpan (${list.count { it.isNotBlank() }}/$size)")
+                }
+            } else null
         )
         updateChampion()
     }
@@ -385,10 +459,15 @@ class MainActivity : AppCompatActivity() {
         if (ch != null) {
             tvChampion.text = ch
             btnCert.visibility = View.VISIBLE
+            if (ch != lastChampion && champBox.visibility == View.VISIBLE) {
+                Anim.pop(tvChampion)
+                ConfettiView.play(this)
+            }
         } else {
             tvChampion.text = "—"
             btnCert.visibility = View.GONE
         }
+        lastChampion = ch
     }
 
     // ───────────────────────── Actions ─────────────────────────

@@ -54,6 +54,26 @@ object LogoHelper {
         }
     }
 
+    /** Simpan gambar latar sertifikat (sisi terpanjang maks 1600px, JPEG). */
+    fun saveBackground(ctx: Context, uri: Uri): String? {
+        try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 1600) sample *= 2
+            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
+            val src = ctx.contentResolver.openInputStream(uri)?.use {
+                BitmapFactory.decodeStream(it, null, opts)
+            } ?: return null
+            val dir = File(ctx.filesDir, "cert_bg").apply { mkdirs() }
+            val f = File(dir, "bg_${System.currentTimeMillis()}.jpg")
+            FileOutputStream(f).use { src.compress(Bitmap.CompressFormat.JPEG, 90, it) }
+            return f.absolutePath
+        } catch (e: Exception) {
+            return null
+        }
+    }
+
     fun initials(name: String): String {
         val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
         return when {

@@ -18,6 +18,8 @@ class BracketConnectorView(context: Context) : View(context) {
     private var slotH = 0
     private var top = 0
     private var decided = BooleanArray(0)
+    var onColor: Int = Color.parseColor("#00E5FF")
+    var offColor: Int = Color.parseColor("#2C3860")
 
     fun setData(pairCount: Int, slotHeight: Int, topOffset: Int, decidedMatches: BooleanArray) {
         pairs = pairCount
@@ -28,7 +30,7 @@ class BracketConnectorView(context: Context) : View(context) {
     }
 
     private fun line(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, on: Boolean) {
-        paint.color = if (on) Color.parseColor("#00E5FF") else Color.parseColor("#2C3860")
+        paint.color = if (on) onColor else offColor
         c.drawLine(x1, y1, x2, y2, paint)
     }
 

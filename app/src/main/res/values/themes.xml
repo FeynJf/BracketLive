@@ -1,13 +1,175 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Tema dasar aplikasi. Nilai bawaan = Neon Navy + Cyan Neon. Tema lain ditumpuk lewat applyStyle() -->
     <style name="Theme.BracketLive" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/cyan</item>
-        <item name="colorPrimaryVariant">@color/blue</item>
-        <item name="colorSecondary">@color/magenta</item>
-        <item name="android:statusBarColor">@color/bg</item>
-        <item name="android:navigationBarColor">@color/bg</item>
-        <item name="android:windowBackground">@color/bg</item>
+        <item name="blBg1">#0B1030</item>
+        <item name="blBg2">#04050C</item>
+        <item name="blHeader1">#1A2260</item>
+        <item name="blHeader2">#0A0E28</item>
+        <item name="blSurface">#111838</item>
+        <item name="blSurface2">#141B40</item>
+        <item name="blSurface3">#0B1024</item>
+        <item name="blStroke">#27346A</item>
+        <item name="blAccent1">#00E5FF</item>
+        <item name="blAccent2">#FF2E88</item>
+        <item name="blAccent3">#7C4DFF</item>
+        <item name="blAccent1B">#3D7BFF</item>
+        <item name="blAccent1A">#6600E5FF</item>
+        <item name="blAccent2A">#66FF2E88</item>
+        <item name="blAccent1S">#2200E5FF</item>
+        <item name="blAccent2S">#22FF2E88</item>
+        <item name="colorPrimary">?attr/blAccent1</item>
+        <item name="colorPrimaryVariant">?attr/blAccent1B</item>
+        <item name="colorSecondary">?attr/blAccent2</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
         <item name="android:textColor">@color/text</item>
         <item name="android:textColorPrimary">@color/text</item>
+        <item name="android:windowAnimationStyle">@style/BLWindowAnim</item>
     </style>
+
+    <style name="BLWindowAnim" parent="">
+        <item name="android:activityOpenEnterAnimation">@anim/bl_slide_in_right</item>
+        <item name="android:activityOpenExitAnimation">@anim/bl_fade_out_left</item>
+        <item name="android:activityCloseEnterAnimation">@anim/bl_fade_in_left</item>
+        <item name="android:activityCloseExitAnimation">@anim/bl_slide_out_right</item>
+    </style>
+
+    <style name="BL.Base.Navy" parent="">
+        <item name="blBg1">#0B1030</item>
+        <item name="blBg2">#04050C</item>
+        <item name="blHeader1">#1A2260</item>
+        <item name="blHeader2">#0A0E28</item>
+        <item name="blSurface">#111838</item>
+        <item name="blSurface2">#141B40</item>
+        <item name="blSurface3">#0B1024</item>
+        <item name="blStroke">#27346A</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.Amoled" parent="">
+        <item name="blBg1">#000000</item>
+        <item name="blBg2">#000000</item>
+        <item name="blHeader1">#0C0C0C</item>
+        <item name="blHeader2">#050505</item>
+        <item name="blSurface">#0D0D10</item>
+        <item name="blSurface2">#131318</item>
+        <item name="blSurface3">#08080A</item>
+        <item name="blStroke">#2A2A33</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.Slate" parent="">
+        <item name="blBg1">#141A24</item>
+        <item name="blBg2">#0A0D13</item>
+        <item name="blHeader1">#222C3D</item>
+        <item name="blHeader2">#121823</item>
+        <item name="blSurface">#1A2230</item>
+        <item name="blSurface2">#202A3B</item>
+        <item name="blSurface3">#151B27</item>
+        <item name="blStroke">#33405A</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.Aurora" parent="">
+        <item name="blBg1">#1A0F36</item>
+        <item name="blBg2">#07040F</item>
+        <item name="blHeader1">#2D1A66</item>
+        <item name="blHeader2">#150C30</item>
+        <item name="blSurface">#1F1445</item>
+        <item name="blSurface2">#27195A</item>
+        <item name="blSurface3">#150D30</item>
+        <item name="blStroke">#3F2C80</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.Forest" parent="">
+        <item name="blBg1">#0A1F1A</item>
+        <item name="blBg2">#030907</item>
+        <item name="blHeader1">#103D32</item>
+        <item name="blHeader2">#082019</item>
+        <item name="blSurface">#0E2A23</item>
+        <item name="blSurface2">#12352B</item>
+        <item name="blSurface3">#0A1F1A</item>
+        <item name="blStroke">#1F5444</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Accent.Cyan" parent="">
+        <item name="blAccent1">#00E5FF</item>
+        <item name="blAccent2">#FF2E88</item>
+        <item name="blAccent3">#7C4DFF</item>
+        <item name="blAccent1B">#3D7BFF</item>
+        <item name="blAccent1A">#6600E5FF</item>
+        <item name="blAccent2A">#66FF2E88</item>
+        <item name="blAccent1S">#2200E5FF</item>
+        <item name="blAccent2S">#22FF2E88</item>
+    </style>
+
+    <style name="BL.Accent.Fire" parent="">
+        <item name="blAccent1">#FF8A00</item>
+        <item name="blAccent2">#FF2E4D</item>
+        <item name="blAccent3">#FFB800</item>
+        <item name="blAccent1B">#FF4D00</item>
+        <item name="blAccent1A">#66FF8A00</item>
+        <item name="blAccent2A">#66FF2E4D</item>
+        <item name="blAccent1S">#22FF8A00</item>
+        <item name="blAccent2S">#22FF2E4D</item>
+    </style>
+
+    <style name="BL.Accent.Emerald" parent="">
+        <item name="blAccent1">#00E5A0</item>
+        <item name="blAccent2">#00B3FF</item>
+        <item name="blAccent3">#7CFF6B</item>
+        <item name="blAccent1B">#00A86B</item>
+        <item name="blAccent1A">#6600E5A0</item>
+        <item name="blAccent2A">#6600B3FF</item>
+        <item name="blAccent1S">#2200E5A0</item>
+        <item name="blAccent2S">#2200B3FF</item>
+    </style>
+
+    <style name="BL.Accent.Gold" parent="">
+        <item name="blAccent1">#FFC83D</item>
+        <item name="blAccent2">#FF7A00</item>
+        <item name="blAccent3">#FFE27A</item>
+        <item name="blAccent1B">#E0A000</item>
+        <item name="blAccent1A">#66FFC83D</item>
+        <item name="blAccent2A">#66FF7A00</item>
+        <item name="blAccent1S">#22FFC83D</item>
+        <item name="blAccent2S">#22FF7A00</item>
+    </style>
+
+    <style name="BL.Accent.Violet" parent="">
+        <item name="blAccent1">#B388FF</item>
+        <item name="blAccent2">#FF4DA6</item>
+        <item name="blAccent3">#7C4DFF</item>
+        <item name="blAccent1B">#8F5BFF</item>
+        <item name="blAccent1A">#66B388FF</item>
+        <item name="blAccent2A">#66FF4DA6</item>
+        <item name="blAccent1S">#22B388FF</item>
+        <item name="blAccent2S">#22FF4DA6</item>
+    </style>
+
+    <style name="BL.Accent.Ice" parent="">
+        <item name="blAccent1">#4DB8FF</item>
+        <item name="blAccent2">#00E5FF</item>
+        <item name="blAccent3">#7C9BFF</item>
+        <item name="blAccent1B">#2979FF</item>
+        <item name="blAccent1A">#664DB8FF</item>
+        <item name="blAccent2A">#6600E5FF</item>
+        <item name="blAccent1S">#224DB8FF</item>
+        <item name="blAccent2S">#2200E5FF</item>
+    </style>
+
 </resources>

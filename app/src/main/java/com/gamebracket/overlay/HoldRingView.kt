@@ -22,6 +22,19 @@ class HoldRingView @JvmOverloads constructor(
         strokeCap = Paint.Cap.ROUND
     }
     private val rect = RectF()
+    private var c1 = Color.parseColor("#00E5FF")
+    private var c2 = Color.parseColor("#7C4DFF")
+    private var c3 = Color.parseColor("#FF2E88")
+
+    fun setColors(a: Int, b: Int, c: Int) {
+        c1 = a; c2 = b; c3 = c
+        if (width > 0) applyShader(width, height)
+        invalidate()
+    }
+
+    private fun applyShader(w: Int, h: Int) {
+        paint.shader = SweepGradient(w / 2f, h / 2f, intArrayOf(c1, c2, c3, c1), null)
+    }
 
     var progress: Float = 0f
         set(value) {
@@ -32,11 +45,7 @@ class HoldRingView @JvmOverloads constructor(
     override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
         val pad = stroke / 2f + 1f
         rect.set(pad, pad, w - pad, h - pad)
-        paint.shader = SweepGradient(
-            w / 2f, h / 2f,
-            intArrayOf(Color.parseColor("#00E5FF"), Color.parseColor("#7C4DFF"), Color.parseColor("#FF2E88"), Color.parseColor("#00E5FF")),
-            null
-        )
+        applyShader(w, h)
     }
 
     override fun onDraw(canvas: Canvas) {

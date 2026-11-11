@@ -56,6 +56,9 @@ class OverlayService : Service() {
 
         /** Dipanggil (di main thread) saat overlay menyala/mati, supaya toggle di app ikut sinkron. */
         @Volatile var stateListener: ((Boolean) -> Unit)? = null
+
+        /** Pengaturan (ukuran/ikon/desain) berubah → overlay yang sedang jalan menyesuaikan langsung. */
+        @Volatile var onSettingsChanged: (() -> Unit)? = null
     }
 
     private lateinit var wm: WindowManager
@@ -72,7 +75,9 @@ class OverlayService : Service() {
     private var bubbleX = 0
     private var bubbleY = 0
     private var panelW = 0
-    private lateinit var bubbleIcon: ImageView
+    private lateinit var bubbleIcon: View
+    private lateinit var ui: Context
+    private var scale = 1f
     private lateinit var holdRing: HoldRingView
     private var holdAnim: ValueAnimator? = null
     private var holdDone = false
@@ -91,6 +96,7 @@ class OverlayService : Service() {
     override fun onCreate() {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
+        ui = ThemeManager.themedContext(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -142,10 +148,10 @@ class OverlayService : Service() {
     // ───────────────────────── Window ─────────────────────────
 
     private fun showOverlay() {
-        val v = LayoutInflater.from(this).inflate(R.layout.overlay_bracket, null)
+        val v = LayoutInflater.from(ui).inflate(R.layout.overlay_bracket, null)
         root = v
         bubble = v.findViewById(R.id.bubble)
-        bubbleIcon = v.findViewById(R.id.bubbleIcon)
+        bubbleIcon = v.findViewById(R.id.bubbleCore)
         holdRing = v.findViewById(R.id.holdRing)
         panel = v.findViewById(R.id.panel)
         content = v.findViewById(R.id.overlayContent)
@@ -153,10 +159,7 @@ class OverlayService : Service() {
         tvChamp = v.findViewById(R.id.tvOverlayChamp)
         tvStatus = v.findViewById(R.id.tvOverlayStatus)
 
-        panelW = min(resources.displayMetrics.widthPixels - dp(16), dp(460))
-        panel.layoutParams = panel.layoutParams.apply { width = panelW }
-        val maxH = min(dp(420), (resources.displayMetrics.heightPixels * 0.5f).toInt())
-        v.findViewById<MaxHeightScrollView>(R.id.overlayScroll).maxHeightPx = maxH
+        applyLook()
 
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
@@ -191,8 +194,43 @@ class OverlayService : Service() {
         wm.addView(v, params)
 
         // Ikon B hanya muncul saat pengguna berada di luar aplikasi
+        OverlayService.onSettingsChanged = { applyLook() }
+        LiveFeed.setListener("overlay") { changed -> if (changed && expanded && root?.findFocus() !is EditText) render() }
         AppVisibility.listener = { fg -> applyForeground(fg) }
         applyForeground(AppVisibility.inForeground)
+    }
+
+    /** Ukuran, desain tombol, ikon, dan latar panel dari Pengaturan. */
+    private fun applyLook() {
+        val r = root ?: return
+        scale = Prefs.overlayScale(this) / 100f
+        ui = ThemeManager.themedContext(this)
+
+        val outer = dp((54 * scale).toInt())
+        val core = dp((44 * scale).toInt())
+        bubble.layoutParams = bubble.layoutParams.apply { width = outer; height = outer }
+        bubbleIcon.layoutParams = bubbleIcon.layoutParams.apply { width = core; height = core }
+        r.findViewById<View>(R.id.holdRing).layoutParams = r.findViewById<View>(R.id.holdRing).layoutParams.apply { width = outer; height = outer }
+        (r.findViewById<View>(R.id.holdRing) as HoldRingView).setColors(
+            ThemeManager.accent1(ui), ThemeManager.accent3(ui), ThemeManager.accent2(ui)
+        )
+
+        val style = Prefs.bubbleStyle(this)
+        val iconIdx = Prefs.bubbleIcon(this)
+        val custom = Prefs.bubbleCustom(this)
+        r.findViewById<ImageView>(R.id.bubbleBg).setImageDrawable(BubbleFactory.background(ui, style, core))
+        val img = r.findViewById<ImageView>(R.id.bubbleImg)
+        val imgSize = if (iconIdx == BubbleFactory.CUSTOM_ICON && custom != null) (core * 0.78f).toInt() else (core * 0.6f).toInt()
+        img.layoutParams = img.layoutParams.apply { width = imgSize; height = imgSize }
+        BubbleFactory.applyIcon(ui, img, iconIdx, custom, imgSize)
+
+        panelW = min(resources.displayMetrics.widthPixels - dp(16), dp((460 * scale).toInt()))
+        panel.layoutParams = panel.layoutParams.apply { width = panelW }
+        val maxH = min(dp((420 * scale).toInt()), (resources.displayMetrics.heightPixels * 0.5f).toInt())
+        r.findViewById<MaxHeightScrollView>(R.id.overlayScroll).maxHeightPx = maxH
+        applyPanelStyle()
+        if (expanded) render()
+        updateWindow()
     }
 
     private fun applyForeground(fg: Boolean) {
@@ -212,6 +250,7 @@ class OverlayService : Service() {
         bubbleY = params.y
         applyPanelStyle()
         render()
+        Anim.enterChildren(content, 90, 45)
         bubble.visibility = View.GONE
         panel.visibility = View.VISIBLE
         params.flags = flagsPanel
@@ -426,7 +465,7 @@ class OverlayService : Service() {
 
     private fun snapToEdge() {
         val screenW = resources.displayMetrics.widthPixels
-        val size = dp(54)
+        val size = dp((54 * scale).toInt())
         val target = if (params.x + size / 2 < screenW / 2) dp(4) else screenW - size - dp(4)
         ValueAnimator.ofInt(params.x, target).apply {
             duration = 160
@@ -460,12 +499,13 @@ class OverlayService : Service() {
             if (mode.type == "br") renderTeams() else renderBracket()
         }
         updateChamp()
+        Anim.pressAll(content)
     }
 
     private fun renderTeams() {
         val sorted = BracketStore.teams.mapIndexed { i, t -> i to t }.sortedByDescending { it.second.score }
         sorted.forEachIndexed { rank, (_, team) ->
-            val row = LinearLayout(this).apply {
+            val row = LinearLayout(ui).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setBackgroundResource(R.drawable.bg_ov_card)
@@ -476,7 +516,7 @@ class OverlayService : Service() {
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(dp(22), LinearLayout.LayoutParams.WRAP_CONTENT)
             })
-            row.addView(ImageView(this).apply {
+            row.addView(ImageView(ui).apply {
                 val px = dp(28)
                 setImageDrawable(LogoHelper.drawable(this@OverlayService, team.name, team.logo, px))
                 layoutParams = LinearLayout.LayoutParams(px, px).apply { marginStart = dp(4); marginEnd = dp(4) }
@@ -486,7 +526,8 @@ class OverlayService : Service() {
                 team.score = max(0, team.score - 1)
                 render()
             })
-            row.addView(label("${team.score}", 15f, R.color.cyan, true).apply {
+            row.addView(label("${team.score}", 15f, R.color.text, true).apply {
+                setTextColor(ThemeManager.accent1(ui))
                 gravity = Gravity.CENTER
                 layoutParams = LinearLayout.LayoutParams(dp(36), LinearLayout.LayoutParams.WRAP_CONTENT)
             })
@@ -511,22 +552,23 @@ class OverlayService : Service() {
     }
 
     private fun renderBracket() {
-        val hs = HorizontalScrollView(this).apply {
+        val hs = HorizontalScrollView(ui).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
         }
-        val holder = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val holder = LinearLayout(ui).apply { orientation = LinearLayout.HORIZONTAL }
         hs.addView(holder)
         content.addView(hs)
         hScroll = hs
         val cfg = BracketUi.Config(
-            cardWidthDp = 156, rowHeightDp = 34, textSp = 12f, logoDp = 22, connectorDp = 20,
+            cardWidthDp = (156 * scale).toInt(), rowHeightDp = (34 * scale).toInt(), textSp = 12f * scale,
+            logoDp = (22 * scale).toInt(), connectorDp = 20,
             cardBg = R.drawable.bg_ov_card, chipBg = R.drawable.bg_ov_chip
         )
-        BracketUi.build(this, holder, cfg, null) { msg ->
+        BracketUi.build(ui, holder, cfg, pickLogo = null, onWin = { msg ->
             msg?.let { setStatus(it) }
             render()
-        }
+        })
         val x = savedScrollX
         hs.post { hs.scrollTo(x, 0) }
 
@@ -560,14 +602,14 @@ class OverlayService : Service() {
         LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
     ).apply { bottomMargin = bottom }
 
-    private fun label(text: String, sizeSp: Float, colorRes: Int, bold: Boolean) = TextView(this).apply {
+    private fun label(text: String, sizeSp: Float, colorRes: Int, bold: Boolean) = TextView(ui).apply {
         this.text = text
         textSize = sizeSp
         setTextColor(col(colorRes))
         if (bold) setTypeface(null, Typeface.BOLD)
     }
 
-    private fun nameField(value: String, colorRes: Int, onChange: (String) -> Unit) = EditText(this).apply {
+    private fun nameField(value: String, colorRes: Int, onChange: (String) -> Unit) = EditText(ui).apply {
         setText(value)
         setTextColor(col(colorRes))
         setHintTextColor(col(R.color.dim))
@@ -596,7 +638,7 @@ class OverlayService : Service() {
     }
 
     private fun actionRow(vararg actions: Pair<String, () -> Unit>): View {
-        val row = LinearLayout(this).apply {
+        val row = LinearLayout(ui).apply {
             orientation = LinearLayout.HORIZONTAL
             layoutParams = rowParams(0).apply { topMargin = dp(4) }
         }
@@ -622,6 +664,8 @@ class OverlayService : Service() {
 
     override fun onDestroy() {
         AppVisibility.listener = null
+        OverlayService.onSettingsChanged = null
+        LiveFeed.setListener("overlay", null)
         setRunning(false)
         try { root?.let { wm.removeView(it) } } catch (_: Exception) {}
         root = null
