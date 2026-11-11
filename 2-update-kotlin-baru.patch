@@ -1,0 +1,987 @@
+diff --git a/app/src/main/java/com/gamebracket/overlay/AppVisibility.kt b/app/src/main/java/com/gamebracket/overlay/AppVisibility.kt
+new file mode 100644
+index 0000000..dd3c890
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/AppVisibility.kt
+@@ -0,0 +1,38 @@
++package com.gamebracket.overlay
++
++import android.os.Handler
++import android.os.Looper
++
++/**
++ * Melacak apakah aplikasi sedang terlihat di layar.
++ * Overlay disembunyikan saat aplikasi dibuka dan baru muncul setelah pengguna keluar dari aplikasi.
++ */
++object AppVisibility {
++    private var started = 0
++    private val handler = Handler(Looper.getMainLooper())
++    private val goBackground = Runnable { set(false) }
++
++    @Volatile var inForeground = false
++        private set
++
++    /** Dipanggil di main thread saat status berubah. */
++    var listener: ((Boolean) -> Unit)? = null
++
++    fun onStart() {
++        started++
++        handler.removeCallbacks(goBackground)
++        set(true)
++    }
++
++    fun onStop() {
++        started = maxOf(0, started - 1)
++        // jeda singkat supaya rotasi layar / pindah antar-layar tidak membuat overlay berkedip
++        if (started == 0) handler.postDelayed(goBackground, 500)
++    }
++
++    private fun set(fg: Boolean) {
++        if (fg == inForeground) return
++        inForeground = fg
++        listener?.invoke(fg)
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/BracketConnectorView.kt b/app/src/main/java/com/gamebracket/overlay/BracketConnectorView.kt
+new file mode 100644
+index 0000000..879d7e2
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/BracketConnectorView.kt
+@@ -0,0 +1,51 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.Paint
++import android.view.View
++
++/** Garis penghubung antar-babak (bentuk bracket): dua match → satu match di babak berikutnya. */
++class BracketConnectorView(context: Context) : View(context) {
++
++    private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
++        style = Paint.Style.STROKE
++        strokeCap = Paint.Cap.ROUND
++        strokeWidth = 2f * resources.displayMetrics.density
++    }
++    private var pairs = 0
++    private var slotH = 0
++    private var top = 0
++    private var decided = BooleanArray(0)
++
++    fun setData(pairCount: Int, slotHeight: Int, topOffset: Int, decidedMatches: BooleanArray) {
++        pairs = pairCount
++        slotH = slotHeight
++        top = topOffset
++        decided = decidedMatches
++        invalidate()
++    }
++
++    private fun line(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, on: Boolean) {
++        paint.color = if (on) Color.parseColor("#00E5FF") else Color.parseColor("#2C3860")
++        c.drawLine(x1, y1, x2, y2, paint)
++    }
++
++    override fun onDraw(canvas: Canvas) {
++        val w = width.toFloat()
++        val xm = w / 2f
++        for (i in 0 until pairs) {
++            val a = decided.getOrElse(2 * i) { false }
++            val b = decided.getOrElse(2 * i + 1) { false }
++            val y1 = top + (2 * i + 0.5f) * slotH
++            val y2 = top + (2 * i + 1.5f) * slotH
++            val ym = (y1 + y2) / 2f
++            line(canvas, 0f, y1, xm, y1, a)
++            line(canvas, 0f, y2, xm, y2, b)
++            line(canvas, xm, y1, xm, ym, a)
++            line(canvas, xm, ym, xm, y2, b)
++            line(canvas, xm, ym, w, ym, a && b)
++        }
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/BracketStore.kt b/app/src/main/java/com/gamebracket/overlay/BracketStore.kt
+index 03bc11e..a3caed7 100644
+--- a/app/src/main/java/com/gamebracket/overlay/BracketStore.kt
++++ b/app/src/main/java/com/gamebracket/overlay/BracketStore.kt
+@@ -4,7 +4,7 @@ package com.gamebracket.overlay
+  * Shared tournament state — native, no HTML.
+  */
+ object BracketStore {
+-    data class Team(var name: String, var score: Int = 0)
++    data class Team(var name: String, var score: Int = 0, var logo: String? = null)
+     data class Mode(val id: String, val name: String, val type: String) // br | bracket
+ 
+     val games = linkedMapOf(
+@@ -42,6 +42,8 @@ object BracketStore {
+     var teams: MutableList<Team> = mutableListOf()
+     /** players for bracket slots */
+     var players: MutableList<String> = MutableList(8) { "Tim ${it + 1}" }
++    /** path logo untuk tiap slot bracket (sejajar dengan [players]) */
++    var playerLogos: MutableList<String?> = MutableList(8) { null }
+     /** matchKey "r{r}m{m}" -> winner slot 0/1 */
+     var winners: MutableMap<String, Int> = mutableMapOf()
+     /** series scores */
+@@ -59,6 +61,40 @@ object BracketStore {
+         return getName(r - 1, m * 2 + s, prev)
+     }
+ 
++    fun getLogo(r: Int, m: Int, s: Int): String? {
++        if (r == 0) return playerLogos.getOrNull(m * 2 + s)
++        val prev = winners["r${r - 1}m${m * 2 + s}"] ?: return null
++        return getLogo(r - 1, m * 2 + s, prev)
++    }
++
++    /** Acak slot bracket (nama + logo ikut berpindah bersama). */
++    fun shufflePlayers() {
++        ensurePlayers()
++        val order = players.indices.shuffled()
++        val np = order.map { players[it] }
++        val nl = order.map { playerLogos[it] }
++        players = np.toMutableList()
++        playerLogos = nl.toMutableList()
++    }
++
++    fun replacePlayers(names: List<String>) {
++        players = names.toMutableList()
++        playerLogos = MutableList(players.size) { null }
++        ensurePlayers()
++    }
++
++    fun championLogo(): String? {
++        val m = mode ?: return null
++        return if (m.type == "br") {
++            teams.maxByOrNull { it.score }?.takeIf { it.score > 0 }?.logo
++        } else {
++            val total = rounds()
++            if (total == 0) return null
++            val w = winners["r${total - 1}m0"] ?: return null
++            getLogo(total - 1, 0, w)
++        }
++    }
++
+     fun ensureTeams() {
+         while (teams.size < size) teams.add(Team("Tim ${teams.size + 1}"))
+         while (teams.size > size) teams.removeAt(teams.lastIndex)
+@@ -67,6 +103,8 @@ object BracketStore {
+     fun ensurePlayers() {
+         while (players.size < size) players.add("Tim ${players.size + 1}")
+         while (players.size > size) players.removeAt(players.lastIndex)
++        while (playerLogos.size < players.size) playerLogos.add(null)
++        while (playerLogos.size > players.size) playerLogos.removeAt(playerLogos.lastIndex)
+     }
+ 
+     /** Nama babak: ROUND OF 16 / QUARTERFINAL / SEMIFINAL / FINAL */
+diff --git a/app/src/main/java/com/gamebracket/overlay/BracketUi.kt b/app/src/main/java/com/gamebracket/overlay/BracketUi.kt
+new file mode 100644
+index 0000000..c664d29
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/BracketUi.kt
+@@ -0,0 +1,185 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.graphics.Color
++import android.graphics.Typeface
++import android.view.Gravity
++import android.view.View
++import android.widget.EditText
++import android.widget.FrameLayout
++import android.widget.ImageView
++import android.widget.LinearLayout
++import android.widget.TextView
++import androidx.core.content.ContextCompat
++
++/**
++ * Membangun tampilan bracket (kolom babak + garis penghubung). Dipakai oleh aplikasi dan overlay.
++ */
++object BracketUi {
++
++    class Config(
++        val cardWidthDp: Int,
++        val rowHeightDp: Int,
++        val textSp: Float,
++        val logoDp: Int,
++        val connectorDp: Int
++    )
++
++    /**
++     * @param pickLogo dipanggil dengan indeks slot babak-1 saat logo diketuk (null = logo tidak bisa diubah)
++     * @param onWin dipanggil setelah skor/pemenang berubah; pemanggil harus menggambar ulang
++     */
++    fun build(
++        ctx: Context,
++        container: LinearLayout,
++        cfg: Config,
++        pickLogo: ((Int) -> Unit)?,
++        onWin: (String?) -> Unit
++    ) {
++        container.removeAllViews()
++        val d = ctx.resources.displayMetrics.density
++        fun dp(v: Int) = (v * d).toInt()
++        fun col(id: Int) = ContextCompat.getColor(ctx, id)
++
++        val cardW = dp(cfg.cardWidthDp)
++        val rowH = dp(cfg.rowHeightDp)
++        val labelH = dp(28)
++        val baseSlot = rowH * 2 + dp(18)
++        val rounds = BracketStore.rounds()
++
++        for (r in 0 until rounds) {
++            val slotH = baseSlot * (1 shl r)
++            val matches = BracketStore.matchesIn(r)
++
++            val column = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
++            column.addView(TextView(ctx).apply {
++                text = BracketStore.roundName(r)
++                setTextColor(col(R.color.cyan))
++                textSize = 9.5f
++                letterSpacing = 0.12f
++                gravity = Gravity.CENTER
++                setTypeface(null, Typeface.BOLD)
++                setBackgroundResource(R.drawable.bg_chip)
++                layoutParams = LinearLayout.LayoutParams(cardW, dp(22)).apply { bottomMargin = labelH - dp(22) }
++            })
++
++            for (m in 0 until matches) {
++                val slot = FrameLayout(ctx).apply { layoutParams = LinearLayout.LayoutParams(cardW, slotH) }
++                val card = buildMatch(ctx, r, m, cfg, rowH, pickLogo, onWin)
++                card.layoutParams = FrameLayout.LayoutParams(cardW, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL)
++                slot.addView(card)
++                column.addView(slot)
++            }
++            container.addView(column)
++
++            if (r < rounds - 1) {
++                val decided = BooleanArray(matches) { BracketStore.winners["r${r}m$it"] != null }
++                val conn = BracketConnectorView(ctx)
++                conn.layoutParams = LinearLayout.LayoutParams(dp(cfg.connectorDp), labelH + matches * slotH)
++                conn.setData(matches / 2, slotH, labelH, decided)
++                container.addView(conn)
++            }
++        }
++    }
++
++    private fun buildMatch(
++        ctx: Context, r: Int, m: Int, cfg: Config, rowH: Int,
++        pickLogo: ((Int) -> Unit)?, onWin: (String?) -> Unit
++    ): View {
++        val d = ctx.resources.displayMetrics.density
++        fun dp(v: Int) = (v * d).toInt()
++        fun col(id: Int) = ContextCompat.getColor(ctx, id)
++
++        val key = "r${r}m$m"
++        val sc = BracketStore.series[key] ?: intArrayOf(0, 0)
++        val winner = BracketStore.winners[key]
++        val box = LinearLayout(ctx).apply {
++            orientation = LinearLayout.VERTICAL
++            setBackgroundResource(R.drawable.bg_match)
++        }
++
++        for (s in 0..1) {
++            val slotIndex = m * 2 + s
++            val name = BracketStore.getName(r, m, s)
++            val isWin = winner == s
++            val row = LinearLayout(ctx).apply {
++                orientation = LinearLayout.HORIZONTAL
++                gravity = Gravity.CENTER_VERTICAL
++                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, rowH)
++                if (isWin) setBackgroundColor(Color.parseColor("#1500E5FF"))
++            }
++            // aksen kiri untuk pemenang
++            row.addView(View(ctx).apply {
++                setBackgroundColor(if (isWin) col(R.color.cyan) else Color.TRANSPARENT)
++                layoutParams = LinearLayout.LayoutParams(dp(3), LinearLayout.LayoutParams.MATCH_PARENT)
++            })
++            // logo tim
++            val logo = ImageView(ctx).apply {
++                val px = dp(cfg.logoDp)
++                setImageDrawable(LogoHelper.drawable(ctx, name, BracketStore.getLogo(r, m, s), px))
++                layoutParams = LinearLayout.LayoutParams(px, px).apply { marginStart = dp(8); marginEnd = dp(6) }
++                alpha = if (winner != null && !isWin) 0.45f else 1f
++                if (r == 0 && pickLogo != null) setOnClickListener { pickLogo(slotIndex) }
++            }
++            row.addView(logo)
++
++            val nameColor = when {
++                isWin -> R.color.cyan
++                winner != null -> R.color.dim
++                else -> R.color.text
++            }
++            if (r == 0) {
++                row.addView(EditText(ctx).apply {
++                    setText(name)
++                    setTextColor(col(nameColor))
++                    setHintTextColor(col(R.color.dim))
++                    hint = "Nama tim"
++                    textSize = cfg.textSp
++                    setTypeface(null, Typeface.BOLD)
++                    setBackgroundColor(Color.TRANSPARENT)
++                    setPadding(0, 0, 0, 0)
++                    minimumHeight = 0
++                    minHeight = 0
++                    setSingleLine()
++                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f)
++                    addTextChangedListener(object : android.text.TextWatcher {
++                        override fun beforeTextChanged(x: CharSequence?, a: Int, b: Int, c: Int) {}
++                        override fun onTextChanged(x: CharSequence?, a: Int, b: Int, c: Int) {}
++                        override fun afterTextChanged(e: android.text.Editable?) {
++                            if (slotIndex < BracketStore.players.size) BracketStore.players[slotIndex] = e?.toString() ?: ""
++                        }
++                    })
++                })
++            } else {
++                row.addView(TextView(ctx).apply {
++                    text = name.ifBlank { "—" }
++                    setTextColor(col(nameColor))
++                    textSize = cfg.textSp
++                    setTypeface(null, Typeface.BOLD)
++                    maxLines = 1
++                    layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
++                })
++            }
++
++            // tombol skor: ketuk = +1 poin / menangkan match
++            row.addView(TextView(ctx).apply {
++                text = "${sc[s]}"
++                gravity = Gravity.CENTER
++                setTextColor(if (isWin) Color.WHITE else col(R.color.muted_light))
++                textSize = 12f
++                setTypeface(null, Typeface.BOLD)
++                setBackgroundResource(if (isWin) R.drawable.bg_btn_primary else R.drawable.bg_chip)
++                layoutParams = LinearLayout.LayoutParams(dp(32), dp(26)).apply { marginStart = dp(4); marginEnd = dp(6) }
++                setOnClickListener { onWin(BracketStore.registerWin(r, m, s)) }
++            })
++            if (r > 0) row.setOnClickListener { onWin(BracketStore.registerWin(r, m, s)) }
++            box.addView(row)
++
++            if (s == 0) box.addView(View(ctx).apply {
++                setBackgroundColor(Color.parseColor("#1F2850"))
++                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1)
++            })
++        }
++        return box
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/CertificateActivity.kt b/app/src/main/java/com/gamebracket/overlay/CertificateActivity.kt
+new file mode 100644
+index 0000000..08faf4a
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/CertificateActivity.kt
+@@ -0,0 +1,209 @@
++package com.gamebracket.overlay
++
++import android.content.ContentValues
++import android.graphics.Bitmap
++import android.graphics.Color
++import android.graphics.Typeface
++import android.net.Uri
++import android.os.Build
++import android.os.Bundle
++import android.os.Environment
++import android.os.Handler
++import android.os.Looper
++import android.provider.MediaStore
++import android.text.Editable
++import android.text.TextWatcher
++import android.view.Gravity
++import android.view.View
++import android.view.ViewGroup
++import android.widget.EditText
++import android.widget.ImageView
++import android.widget.LinearLayout
++import android.widget.TextView
++import android.widget.Toast
++import androidx.activity.result.contract.ActivityResultContracts
++import androidx.appcompat.app.AppCompatActivity
++import androidx.core.content.ContextCompat
++import java.io.File
++import java.io.FileOutputStream
++import java.text.SimpleDateFormat
++import java.util.Date
++import java.util.Locale
++
++/** Editor sertifikat: ubah teks, logo, dan tema dengan pratinjau langsung, lalu simpan ke Galeri. */
++class CertificateActivity : AppCompatActivity() {
++
++    private lateinit var ivPreview: ImageView
++    private lateinit var form: LinearLayout
++    private val data = CertificateRenderer.Data()
++    private val handler = Handler(Looper.getMainLooper())
++    private var latest: Bitmap? = null
++    private var pickTarget: ((String) -> Unit)? = null
++    private lateinit var btnChampLogo: TextView
++    private lateinit var btnOrgLogo: TextView
++    private val themeButtons = mutableListOf<TextView>()
++
++    private val picker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
++        if (uri == null) return@registerForActivityResult
++        val path = LogoHelper.saveFromUri(this, uri)
++        if (path == null) toast("Gambar tidak bisa dibaca") else pickTarget?.invoke(path)
++    }
++
++    private val refresh = Runnable {
++        latest = CertificateRenderer.render(this, data)
++        ivPreview.setImageBitmap(latest)
++    }
++
++    override fun onCreate(savedInstanceState: Bundle?) {
++        super.onCreate(savedInstanceState)
++        setContentView(R.layout.activity_certificate)
++        ivPreview = findViewById(R.id.ivPreview)
++        form = findViewById(R.id.formContainer)
++
++        val game = BracketStore.gameId?.let { BracketStore.games[it]?.first } ?: ""
++        val mode = BracketStore.mode?.name ?: ""
++        data.name = BracketStore.champion() ?: ""
++        data.championLogo = BracketStore.championLogo()
++        data.event = listOf(game, mode).filter { it.isNotBlank() }.joinToString(" · ")
++        data.date = SimpleDateFormat("d MMMM yyyy", Locale("id")).format(Date())
++
++        findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
++        findViewById<View>(R.id.btnSave).setOnClickListener { save() }
++
++        addField("JUDUL SERTIFIKAT", data.title) { data.title = it }
++        addField("NAMA JUARA", data.name) { data.name = it }
++        addField("PERINGKAT", data.ranking) { data.ranking = it }
++        addField("TURNAMEN / EVENT", data.event) { data.event = it }
++        addField("TANGGAL", data.date) { data.date = it }
++        addField("NAMA PANITIA (JADI TANDA TANGAN)", data.signer, "Ketik nama, otomatis jadi tanda tangan") { data.signer = it }
++        addField("JABATAN", data.signerRole) { data.signerRole = it }
++
++        addLabel("LOGO")
++        val logoRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        btnChampLogo = smallButton("Logo juara") { pickTarget = { p -> data.championLogo = p; updateLogoButtons(); schedule() }; picker.launch("image/*") }
++        btnOrgLogo = smallButton("Logo penyelenggara") { pickTarget = { p -> data.orgLogo = p; updateLogoButtons(); schedule() }; picker.launch("image/*") }
++        logoRow.addView(btnChampLogo)
++        logoRow.addView(btnOrgLogo)
++        form.addView(logoRow)
++        val clearRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        clearRow.addView(smallButton("Hapus logo juara") { data.championLogo = null; updateLogoButtons(); schedule() })
++        clearRow.addView(smallButton("Hapus logo penyelenggara") { data.orgLogo = null; updateLogoButtons(); schedule() })
++        form.addView(clearRow)
++        updateLogoButtons()
++
++        addLabel("TEMA")
++        val themeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        listOf("Neon Gamer" to CertificateRenderer.THEME_NEON, "Klasik Emas" to CertificateRenderer.THEME_CLASSIC).forEach { (label, t) ->
++            val b = smallButton(label) { data.theme = t; updateThemeButtons(); schedule() }
++            themeButtons.add(b)
++            themeRow.addView(b)
++        }
++        form.addView(themeRow)
++        updateThemeButtons()
++
++        refresh.run()
++    }
++
++    override fun onStart() {
++        super.onStart()
++        AppVisibility.onStart()
++    }
++
++    override fun onStop() {
++        AppVisibility.onStop()
++        super.onStop()
++    }
++
++    private fun schedule() {
++        handler.removeCallbacks(refresh)
++        handler.postDelayed(refresh, 120)
++    }
++
++    private fun updateLogoButtons() {
++        btnChampLogo.text = if (data.championLogo != null) "Logo juara ✓" else "Logo juara"
++        btnOrgLogo.text = if (data.orgLogo != null) "Logo penyelenggara ✓" else "Logo penyelenggara"
++    }
++
++    private fun updateThemeButtons() {
++        themeButtons.forEachIndexed { i, b ->
++            val on = data.theme == i
++            b.setBackgroundResource(if (on) R.drawable.bg_chip_active else R.drawable.bg_chip)
++            b.setTextColor(ContextCompat.getColor(this, if (on) R.color.on_accent else R.color.muted_light))
++        }
++    }
++
++    private fun addLabel(text: String) {
++        form.addView(TextView(this).apply {
++            this.text = text
++            setTextColor(ContextCompat.getColor(context, R.color.muted))
++            textSize = 10f
++            letterSpacing = 0.15f
++            setTypeface(null, Typeface.BOLD)
++            setPadding(dp(2), dp(14), 0, dp(6))
++        })
++    }
++
++    private fun addField(label: String, value: String, hintText: String = "", onChange: (String) -> Unit) {
++        addLabel(label)
++        form.addView(EditText(this).apply {
++            setText(value)
++            hint = hintText
++            setHintTextColor(ContextCompat.getColor(context, R.color.dim))
++            setTextColor(ContextCompat.getColor(context, R.color.text))
++            textSize = 14f
++            setSingleLine()
++            setPadding(dp(14), 0, dp(14), 0)
++            setBackgroundResource(R.drawable.bg_input)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46))
++            addTextChangedListener(object : TextWatcher {
++                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
++                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
++                override fun afterTextChanged(s: Editable?) { onChange(s?.toString() ?: ""); schedule() }
++            })
++        })
++    }
++
++    private fun smallButton(label: String, onClick: () -> Unit) = TextView(this).apply {
++        text = label
++        gravity = Gravity.CENTER
++        textSize = 12f
++        setTypeface(null, Typeface.BOLD)
++        setTextColor(ContextCompat.getColor(context, R.color.muted_light))
++        setBackgroundResource(R.drawable.bg_chip)
++        layoutParams = LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(8); topMargin = dp(6) }
++        setOnClickListener { onClick() }
++    }
++
++    private fun save() {
++        val bmp = CertificateRenderer.render(this, data)
++        val safe = data.name.ifBlank { "Juara" }.replace(Regex("[^A-Za-z0-9]+"), "_")
++        val fileName = "Sertifikat_${safe}_${System.currentTimeMillis() / 1000}.png"
++        try {
++            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
++                val values = ContentValues().apply {
++                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
++                    put(MediaStore.MediaColumns.MIME_TYPE, "image/png")
++                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/BracketLive")
++                    put(MediaStore.MediaColumns.IS_PENDING, 1)
++                }
++                val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
++                    ?: throw IllegalStateException("Tidak bisa membuat file")
++                contentResolver.openOutputStream(uri)?.use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
++                values.clear()
++                values.put(MediaStore.MediaColumns.IS_PENDING, 0)
++                contentResolver.update(uri, values, null, null)
++            } else {
++                val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
++                val folder = File(dir, "BracketLive").apply { mkdirs() }
++                FileOutputStream(File(folder, fileName)).use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
++            }
++            toast("Sertifikat disimpan ke Galeri (Pictures/BracketLive)")
++        } catch (e: Exception) {
++            toast("Gagal simpan: ${e.message}")
++        }
++    }
++
++    private fun toast(m: String) = Toast.makeText(this, m, Toast.LENGTH_LONG).show()
++
++    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/CertificateRenderer.kt b/app/src/main/java/com/gamebracket/overlay/CertificateRenderer.kt
+new file mode 100644
+index 0000000..905bd5f
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/CertificateRenderer.kt
+@@ -0,0 +1,195 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.LinearGradient
++import android.graphics.Paint
++import android.graphics.RectF
++import android.graphics.Shader
++import android.graphics.Typeface
++import androidx.core.content.ContextCompat
++
++/** Menggambar sertifikat 1200x850. Semua teks bisa diedit lewat [Data]. */
++object CertificateRenderer {
++
++    const val W = 1200
++    const val H = 850
++
++    const val THEME_NEON = 0
++    const val THEME_CLASSIC = 1
++
++    class Data(
++        var title: String = "SERTIFIKAT JUARA",
++        var name: String = "",
++        var ranking: String = "JUARA 1",
++        var event: String = "",
++        var date: String = "",
++        var signer: String = "",
++        var signerRole: String = "Ketua Panitia",
++        var championLogo: String? = null,
++        var orgLogo: String? = null,
++        var theme: Int = THEME_NEON
++    )
++
++    private class Palette(
++        val bg1: Int, val bg2: Int, val acc1: Int, val acc2: Int, val line: Int,
++        val title: Int, val text: Int, val name: Int, val gold: Int, val ink: Int, val serif: Boolean
++    )
++
++    private val neon = Palette(
++        Color.parseColor("#141C4A"), Color.parseColor("#05060F"),
++        Color.parseColor("#00E5FF"), Color.parseColor("#FF2E88"), Color.parseColor("#2A3560"),
++        Color.WHITE, Color.parseColor("#A9B4D4"), Color.WHITE, Color.parseColor("#FFC83D"),
++        Color.parseColor("#E8F1FF"), false
++    )
++    private val classic = Palette(
++        Color.parseColor("#FFFDF5"), Color.parseColor("#F1E7CC"),
++        Color.parseColor("#C9A227"), Color.parseColor("#8B6B14"), Color.parseColor("#B89B4A"),
++        Color.parseColor("#5C4A1F"), Color.parseColor("#6B5E40"), Color.parseColor("#1A1A1A"),
++        Color.parseColor("#A8841A"), Color.parseColor("#0D1B3D"), true
++    )
++
++    private var signFace: Typeface? = null
++
++    /** Font tanda tangan tegak bersambung (Sacramento). Cadangan: font cursive bawaan Android. */
++    private fun signatureFace(ctx: Context): Typeface {
++        signFace?.let { return it }
++        val tf = try {
++            Typeface.createFromAsset(ctx.assets, "fonts/Sacramento-Regular.ttf")
++        } catch (e: Exception) {
++            Typeface.create("cursive", Typeface.NORMAL)
++        }
++        signFace = tf
++        return tf
++    }
++
++    fun render(ctx: Context, d: Data): Bitmap {
++        val pal = if (d.theme == THEME_CLASSIC) classic else neon
++        val bmp = Bitmap.createBitmap(W, H, Bitmap.Config.ARGB_8888)
++        val c = Canvas(bmp)
++        val p = Paint(Paint.ANTI_ALIAS_FLAG)
++        val w = W.toFloat()
++        val h = H.toFloat()
++        val face = if (pal.serif) Typeface.SERIF else Typeface.SANS_SERIF
++
++        // latar
++        p.shader = LinearGradient(0f, 0f, w, h, pal.bg1, pal.bg2, Shader.TileMode.CLAMP)
++        c.drawRect(0f, 0f, w, h, p)
++        p.shader = null
++
++        // motif bracket samar di sudut
++        p.style = Paint.Style.STROKE
++        p.strokeWidth = 3f
++        p.color = withAlpha(pal.acc1, 28)
++        c.drawLines(floatArrayOf(60f, 650f, 130f, 650f, 130f, 650f, 130f, 720f, 60f, 720f, 130f, 720f, 130f, 685f, 200f, 685f), p)
++        c.drawLines(floatArrayOf(w - 60f, 430f, w - 130f, 430f, w - 130f, 430f, w - 130f, 500f, w - 60f, 500f, w - 130f, 500f, w - 130f, 465f, w - 200f, 465f), p)
++
++        // bingkai
++        p.strokeWidth = 6f
++        p.shader = LinearGradient(0f, 0f, w, h, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
++        c.drawRoundRect(RectF(24f, 24f, w - 24f, h - 24f), 28f, 28f, p)
++        p.shader = null
++        p.strokeWidth = 1.5f
++        p.color = pal.line
++        c.drawRoundRect(RectF(46f, 46f, w - 46f, h - 46f), 18f, 18f, p)
++        p.style = Paint.Style.FILL
++
++        // logo penyelenggara (kiri atas) & logo Bracket Live (kanan atas)
++        if (!d.orgLogo.isNullOrEmpty()) drawLogoRing(c, LogoHelper.circleBitmap("", d.orgLogo, 192), 140f, 140f, 48f, pal)
++        ContextCompat.getDrawable(ctx, R.drawable.ic_logo)?.let {
++            it.setBounds(W - 190, 92, W - 94, 188)
++            it.draw(c)
++        }
++
++        // judul
++        text(c, "BRACKET LIVE", 600f, 118f, 20f, pal.acc1, face, true, 0.45f)
++        fit(c, d.title.uppercase(), 600f, 205f, 62f, 760f, pal.title, face, true, 0.1f)
++        p.shader = LinearGradient(470f, 0f, 730f, 0f, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
++        c.drawRoundRect(RectF(470f, 228f, 730f, 233f), 3f, 3f, p)
++        p.shader = null
++
++        // logo juara
++        val champName = d.name.ifBlank { "?" }
++        val big = LogoHelper.circleBitmap(champName, d.championLogo, 280)
++        drawLogoRing(c, big, 600f, 335f, 72f, pal)
++
++        text(c, "diberikan kepada", 600f, 455f, 22f, pal.text, face, false, 0.08f)
++        fit(c, d.name.ifBlank { "—" }, 600f, 535f, 70f, 940f, pal.name, face, true, 0f)
++        p.shader = LinearGradient(250f, 0f, 950f, 0f, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
++        c.drawRoundRect(RectF(250f, 560f, 950f, 563f), 2f, 2f, p)
++        p.shader = null
++
++        fit(c, d.ranking.uppercase(), 600f, 620f, 34f, 900f, pal.gold, face, true, 0.15f)
++        fit(c, d.event, 600f, 662f, 24f, 900f, pal.text, face, false, 0.03f)
++
++        // blok tanggal (kiri) & tanda tangan (kanan)
++        text(c, d.date, 300f, 722f, 28f, pal.name, face, false, 0f)
++        line(c, 150f, 735f, 450f, 735f, pal)
++        text(c, "Tanggal", 300f, 772f, 18f, pal.text, face, false, 0.1f)
++
++        // tanda tangan: nama diketik → tampil tegak bersambung
++        val sig = d.signer.trim()
++        if (sig.isNotEmpty()) {
++            p.typeface = signatureFace(ctx)
++            p.color = pal.ink
++            p.textAlign = Paint.Align.CENTER
++            var size = 92f
++            p.textSize = size
++            while (p.measureText(sig) > 330f && size > 30f) { size -= 2f; p.textSize = size }
++            c.drawText(sig, 900f, 724f, p)
++        }
++        line(c, 750f, 735f, 1050f, 735f, pal)
++        text(c, sig.ifBlank { "Nama Panitia" }, 900f, 770f, 22f, pal.name, face, true, 0f)
++        text(c, d.signerRole, 900f, 796f, 17f, pal.text, face, false, 0.05f)
++
++        text(c, "dibuat dengan Bracket Live", 600f, 792f, 14f, withAlpha(pal.text, 170), face, false, 0.1f)
++        return bmp
++    }
++
++    private fun withAlpha(color: Int, a: Int) = Color.argb(a, Color.red(color), Color.green(color), Color.blue(color))
++
++    private fun line(c: Canvas, x1: Float, y1: Float, x2: Float, y2: Float, pal: Palette) {
++        val p = Paint(Paint.ANTI_ALIAS_FLAG)
++        p.strokeWidth = 2f
++        p.color = pal.line
++        c.drawLine(x1, y1, x2, y2, p)
++    }
++
++    private fun drawLogoRing(c: Canvas, bmp: Bitmap, cx: Float, cy: Float, r: Float, pal: Palette) {
++        val p = Paint(Paint.ANTI_ALIAS_FLAG)
++        // cincin neon
++        p.style = Paint.Style.STROKE
++        p.strokeWidth = 6f
++        p.shader = LinearGradient(cx - r, cy - r, cx + r, cy + r, pal.acc1, pal.acc2, Shader.TileMode.CLAMP)
++        c.drawCircle(cx, cy, r + 8f, p)
++        p.shader = null
++        p.style = Paint.Style.FILL
++        val dst = RectF(cx - r, cy - r, cx + r, cy + r)
++        c.drawBitmap(bmp, null, dst, Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG))
++    }
++
++    private fun text(c: Canvas, s: String, x: Float, y: Float, size: Float, color: Int, face: Typeface, bold: Boolean, spacing: Float) {
++        val p = Paint(Paint.ANTI_ALIAS_FLAG)
++        p.color = color
++        p.textSize = size
++        p.textAlign = Paint.Align.CENTER
++        p.typeface = Typeface.create(face, if (bold) Typeface.BOLD else Typeface.NORMAL)
++        p.letterSpacing = spacing
++        c.drawText(s, x, y, p)
++    }
++
++    /** Teks yang otomatis mengecil supaya muat di [maxW]. */
++    private fun fit(c: Canvas, s: String, x: Float, y: Float, size: Float, maxW: Float, color: Int, face: Typeface, bold: Boolean, spacing: Float) {
++        val p = Paint(Paint.ANTI_ALIAS_FLAG)
++        p.typeface = Typeface.create(face, if (bold) Typeface.BOLD else Typeface.NORMAL)
++        p.letterSpacing = spacing
++        var sz = size
++        p.textSize = sz
++        while (p.measureText(s) > maxW && sz > 14f) { sz -= 2f; p.textSize = sz }
++        p.color = color
++        p.textAlign = Paint.Align.CENTER
++        c.drawText(s, x, y, p)
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/LogoHelper.kt b/app/src/main/java/com/gamebracket/overlay/LogoHelper.kt
+new file mode 100644
+index 0000000..36cc466
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/LogoHelper.kt
+@@ -0,0 +1,105 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.graphics.Bitmap
++import android.graphics.BitmapFactory
++import android.graphics.BitmapShader
++import android.graphics.Canvas
++import android.graphics.Color
++import android.graphics.LinearGradient
++import android.graphics.Paint
++import android.graphics.Shader
++import android.graphics.Typeface
++import android.graphics.drawable.BitmapDrawable
++import android.graphics.drawable.Drawable
++import android.net.Uri
++import java.io.File
++import java.io.FileOutputStream
++import kotlin.math.min
++
++/** Logo tim: simpan dari galeri, dan buat gambar bulat (logo asli atau inisial). */
++object LogoHelper {
++
++    private val cache = HashMap<String, Bitmap>()
++
++    private val palette = listOf(
++        "#00E5FF" to "#2979FF",
++        "#FF2E88" to "#7C4DFF",
++        "#FFC83D" to "#FF7A00",
++        "#00E5A0" to "#00A3FF",
++        "#7C4DFF" to "#00E5FF",
++        "#FF4D6D" to "#FF9A3D"
++    )
++
++    /** Salin gambar pilihan pengguna ke penyimpanan app (kotak 256px). Mengembalikan path file. */
++    fun saveFromUri(ctx: Context, uri: Uri): String? {
++        try {
++            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
++            ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
++            var sample = 1
++            while (bounds.outWidth / sample > 600 || bounds.outHeight / sample > 600) sample *= 2
++            val opts = BitmapFactory.Options().apply { inSampleSize = sample }
++            val src = ctx.contentResolver.openInputStream(uri)?.use {
++                BitmapFactory.decodeStream(it, null, opts)
++            } ?: return null
++            val side = min(src.width, src.height)
++            val square = Bitmap.createBitmap(src, (src.width - side) / 2, (src.height - side) / 2, side, side)
++            val out = Bitmap.createScaledBitmap(square, 256, 256, true)
++            val dir = File(ctx.filesDir, "logos").apply { mkdirs() }
++            val f = File(dir, "logo_${System.currentTimeMillis()}.png")
++            FileOutputStream(f).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
++            return f.absolutePath
++        } catch (e: Exception) {
++            return null
++        }
++    }
++
++    fun initials(name: String): String {
++        val parts = name.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
++        return when {
++            parts.isEmpty() -> "?"
++            parts.size == 1 -> parts[0].take(2).uppercase()
++            else -> (parts[0].take(1) + parts[1].take(1)).uppercase()
++        }
++    }
++
++    /** Gambar bulat [size]px: logo kalau ada, kalau tidak inisial berwarna. */
++    fun circleBitmap(name: String, path: String?, size: Int): Bitmap {
++        val key = if (path != null) "$path#$size" else "i:$name#$size"
++        cache[key]?.let { return it }
++
++        val out = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
++        val c = Canvas(out)
++        val p = Paint(Paint.ANTI_ALIAS_FLAG)
++        val r = size / 2f
++
++        var drawn = false
++        if (path != null) {
++            val src = try { BitmapFactory.decodeFile(path) } catch (e: Exception) { null }
++            if (src != null) {
++                val scaled = Bitmap.createScaledBitmap(src, size, size, true)
++                p.shader = BitmapShader(scaled, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
++                c.drawCircle(r, r, r, p)
++                p.shader = null
++                drawn = true
++            }
++        }
++        if (!drawn) {
++            val (a, b) = palette[(name.hashCode() and 0x7fffffff) % palette.size]
++            p.shader = LinearGradient(0f, 0f, size.toFloat(), size.toFloat(), Color.parseColor(a), Color.parseColor(b), Shader.TileMode.CLAMP)
++            c.drawCircle(r, r, r, p)
++            p.shader = null
++            p.color = Color.WHITE
++            p.typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
++            p.textAlign = Paint.Align.CENTER
++            p.textSize = size * 0.42f
++            val y = r - (p.descent() + p.ascent()) / 2f
++            c.drawText(initials(name), r, y, p)
++        }
++        cache[key] = out
++        return out
++    }
++
++    fun drawable(ctx: Context, name: String, path: String?, sizePx: Int): Drawable =
++        BitmapDrawable(ctx.resources, circleBitmap(name, path, sizePx))
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt b/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
+new file mode 100644
+index 0000000..1084669
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
+@@ -0,0 +1,90 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.content.Intent
++import android.net.Uri
++import androidx.core.content.FileProvider
++import org.json.JSONObject
++import java.io.File
++import java.io.FileOutputStream
++import java.net.HttpURLConnection
++import java.net.URL
++
++/**
++ * Cek rilis terbaru di GitHub Releases (dibuat otomatis oleh GitHub Actions dengan tag "build-<nomor>").
++ */
++object UpdateChecker {
++
++    private const val REPO = "FeynJf/BracketLive"
++
++    class Info(val build: Int, val title: String, val notes: String, val apkUrl: String)
++
++    /** Blocking — panggil dari thread background. Null kalau belum ada rilis. */
++    fun fetchLatest(): Info? {
++        val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
++        try {
++            conn.connectTimeout = 10000
++            conn.readTimeout = 10000
++            conn.setRequestProperty("Accept", "application/vnd.github+json")
++            conn.setRequestProperty("User-Agent", "BracketLive-App")
++            if (conn.responseCode != 200) return null
++            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
++            val tag = json.optString("tag_name")
++            val build = Regex("(\\d+)").find(tag)?.value?.toIntOrNull() ?: return null
++            val assets = json.optJSONArray("assets") ?: return null
++            var url: String? = null
++            for (i in 0 until assets.length()) {
++                val a = assets.getJSONObject(i)
++                if (a.optString("name").endsWith(".apk")) {
++                    url = a.optString("browser_download_url")
++                    break
++                }
++            }
++            if (url.isNullOrEmpty()) return null
++            return Info(build, json.optString("name", tag), json.optString("body", ""), url)
++        } finally {
++            conn.disconnect()
++        }
++    }
++
++    /** Blocking — unduh APK ke cache. [onProgress] dipanggil dengan 0..100 (atau -1 kalau ukuran tak diketahui). */
++    fun download(ctx: Context, url: String, onProgress: (Int) -> Unit): File {
++        val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
++        dir.listFiles()?.forEach { it.delete() }
++        val file = File(dir, "BracketLive-update.apk")
++        val conn = URL(url).openConnection() as HttpURLConnection
++        try {
++            conn.connectTimeout = 15000
++            conn.readTimeout = 30000
++            conn.instanceFollowRedirects = true
++            conn.setRequestProperty("User-Agent", "BracketLive-App")
++            if (conn.responseCode != 200) throw IllegalStateException("HTTP ${conn.responseCode}")
++            val total = conn.contentLength
++            var done = 0L
++            var last = -2
++            conn.inputStream.use { input ->
++                FileOutputStream(file).use { out ->
++                    val buf = ByteArray(32 * 1024)
++                    while (true) {
++                        val n = input.read(buf)
++                        if (n < 0) break
++                        out.write(buf, 0, n)
++                        done += n
++                        val pct = if (total > 0) (done * 100 / total).toInt() else -1
++                        if (pct != last) { last = pct; onProgress(pct) }
++                    }
++                }
++            }
++        } finally {
++            conn.disconnect()
++        }
++        return file
++    }
++
++    fun installIntent(ctx: Context, apk: File): Intent {
++        val uri: Uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.fileprovider", apk)
++        return Intent(Intent.ACTION_VIEW)
++            .setDataAndType(uri, "application/vnd.android.package-archive")
++            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
++    }
++}
