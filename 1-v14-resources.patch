@@ -1,0 +1,556 @@
+diff --git a/app/src/main/res/anim/bl_fade_in_left.xml b/app/src/main/res/anim/bl_fade_in_left.xml
+new file mode 100644
+index 0000000..dafc257
+--- /dev/null
++++ b/app/src/main/res/anim/bl_fade_in_left.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="true" android:interpolator="@android:anim/decelerate_interpolator">
++    <translate android:fromXDelta="-8%p" android:toXDelta="0" android:duration="260"/>
++    <alpha android:fromAlpha="0.4" android:toAlpha="1" android:duration="260"/>
++</set>
+diff --git a/app/src/main/res/anim/bl_fade_out_left.xml b/app/src/main/res/anim/bl_fade_out_left.xml
+new file mode 100644
+index 0000000..df40cd5
+--- /dev/null
++++ b/app/src/main/res/anim/bl_fade_out_left.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="true" android:interpolator="@android:anim/decelerate_interpolator">
++    <translate android:fromXDelta="0" android:toXDelta="-8%p" android:duration="280"/>
++    <alpha android:fromAlpha="1" android:toAlpha="0.4" android:duration="280"/>
++</set>
+diff --git a/app/src/main/res/anim/bl_slide_in_right.xml b/app/src/main/res/anim/bl_slide_in_right.xml
+new file mode 100644
+index 0000000..18712e2
+--- /dev/null
++++ b/app/src/main/res/anim/bl_slide_in_right.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="true" android:interpolator="@android:anim/decelerate_interpolator">
++    <translate android:fromXDelta="12%p" android:toXDelta="0" android:duration="280"/>
++    <alpha android:fromAlpha="0" android:toAlpha="1" android:duration="280"/>
++</set>
+diff --git a/app/src/main/res/anim/bl_slide_out_right.xml b/app/src/main/res/anim/bl_slide_out_right.xml
+new file mode 100644
+index 0000000..1c88a0c
+--- /dev/null
++++ b/app/src/main/res/anim/bl_slide_out_right.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<set xmlns:android="http://schemas.android.com/apk/res/android"
++    android:shareInterpolator="true" android:interpolator="@android:anim/decelerate_interpolator">
++    <translate android:fromXDelta="0" android:toXDelta="12%p" android:duration="240"/>
++    <alpha android:fromAlpha="1" android:toAlpha="0" android:duration="240"/>
++</set>
+diff --git a/app/src/main/res/color/switch_thumb.xml b/app/src/main/res/color/switch_thumb.xml
+index 909d5db..1c024ab 100644
+--- a/app/src/main/res/color/switch_thumb.xml
++++ b/app/src/main/res/color/switch_thumb.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:state_checked="true" android:color="#FFFFFF" />
++    <item android:state_checked="true" android:color="?attr/blAccent1" />
+     <item android:color="#7E89A8" />
+ </selector>
+diff --git a/app/src/main/res/color/switch_track.xml b/app/src/main/res/color/switch_track.xml
+index 0df9081..c9f297f 100644
+--- a/app/src/main/res/color/switch_track.xml
++++ b/app/src/main/res/color/switch_track.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <selector xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item android:state_checked="true" android:color="#00B8D4" />
++    <item android:state_checked="true" android:color="?attr/blAccent1A" />
+     <item android:color="#2A3354" />
+ </selector>
+diff --git a/app/src/main/res/drawable/bg_btn_gray.xml b/app/src/main/res/drawable/bg_btn_gray.xml
+index 6525661..8e8d827 100644
+--- a/app/src/main/res/drawable/bg_btn_gray.xml
++++ b/app/src/main/res/drawable/bg_btn_gray.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <solid android:color="#161E45"/>
++    <solid android:color="?attr/blSurface2"/>
+     <corners android:radius="14dp"/>
+-    <stroke android:width="1dp" android:color="#2C3A75"/>
++    <stroke android:width="1dp" android:color="?attr/blStroke"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_btn_primary.xml b/app/src/main/res/drawable/bg_btn_primary.xml
+index 69c016a..d036d25 100644
+--- a/app/src/main/res/drawable/bg_btn_primary.xml
++++ b/app/src/main/res/drawable/bg_btn_primary.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <gradient android:startColor="#FF2E88" android:endColor="#7C4DFF" android:angle="135"/>
++    <gradient android:startColor="?attr/blAccent2" android:endColor="?attr/blAccent3" android:angle="135"/>
+     <corners android:radius="14dp"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_card.xml b/app/src/main/res/drawable/bg_card.xml
+index 8e96fae..06410aa 100644
+--- a/app/src/main/res/drawable/bg_card.xml
++++ b/app/src/main/res/drawable/bg_card.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <gradient android:startColor="#111838" android:endColor="#0B1024" android:angle="135"/>
++    <gradient android:startColor="?attr/blSurface" android:endColor="?attr/blSurface3" android:angle="135"/>
+     <corners android:radius="18dp"/>
+-    <stroke android:width="1dp" android:color="#25305A"/>
++    <stroke android:width="1dp" android:color="?attr/blStroke"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_card_neon.xml b/app/src/main/res/drawable/bg_card_neon.xml
+index eaa7c3a..0e33f15 100644
+--- a/app/src/main/res/drawable/bg_card_neon.xml
++++ b/app/src/main/res/drawable/bg_card_neon.xml
+@@ -2,13 +2,13 @@
+ <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+     <item>
+         <shape android:shape="rectangle">
+-            <gradient android:startColor="#6600E5FF" android:endColor="#667C4DFF" android:angle="135"/>
++            <gradient android:startColor="?attr/blAccent1A" android:endColor="?attr/blAccent2A" android:angle="135"/>
+             <corners android:radius="18dp"/>
+         </shape>
+     </item>
+     <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
+         <shape android:shape="rectangle">
+-            <gradient android:startColor="#121A3C" android:endColor="#0B1024" android:angle="135"/>
++            <gradient android:startColor="?attr/blSurface" android:endColor="?attr/blSurface3" android:angle="135"/>
+             <corners android:radius="17dp"/>
+         </shape>
+     </item>
+diff --git a/app/src/main/res/drawable/bg_chip.xml b/app/src/main/res/drawable/bg_chip.xml
+index 869941c..c435619 100644
+--- a/app/src/main/res/drawable/bg_chip.xml
++++ b/app/src/main/res/drawable/bg_chip.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <solid android:color="#141B40"/>
++    <solid android:color="?attr/blSurface2"/>
+     <corners android:radius="12dp"/>
+-    <stroke android:width="1dp" android:color="#27346A"/>
++    <stroke android:width="1dp" android:color="?attr/blStroke"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_chip_active.xml b/app/src/main/res/drawable/bg_chip_active.xml
+index 8cec47a..9c822ac 100644
+--- a/app/src/main/res/drawable/bg_chip_active.xml
++++ b/app/src/main/res/drawable/bg_chip_active.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <gradient android:startColor="#00E5FF" android:endColor="#3D7BFF" android:angle="135"/>
++    <gradient android:startColor="?attr/blAccent1" android:endColor="?attr/blAccent1B" android:angle="135"/>
+     <corners android:radius="12dp"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_empty_ring.xml b/app/src/main/res/drawable/bg_empty_ring.xml
+index 673363f..83241a2 100644
+--- a/app/src/main/res/drawable/bg_empty_ring.xml
++++ b/app/src/main/res/drawable/bg_empty_ring.xml
+@@ -1,5 +1,5 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+-    <gradient android:startColor="#2200E5FF" android:endColor="#22FF2E88" android:angle="135"/>
+-    <stroke android:width="1dp" android:color="#3300E5FF"/>
++    <gradient android:startColor="?attr/blAccent1S" android:endColor="?attr/blAccent2S" android:angle="135"/>
++    <stroke android:width="1dp" android:color="?attr/blAccent1A"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_header.xml b/app/src/main/res/drawable/bg_header.xml
+index 398b436..c835af7 100644
+--- a/app/src/main/res/drawable/bg_header.xml
++++ b/app/src/main/res/drawable/bg_header.xml
+@@ -1,4 +1,4 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <gradient android:startColor="#1A2260" android:centerColor="#0F1540" android:endColor="#0A0E28" android:angle="0"/>
++    <gradient android:startColor="?attr/blHeader1" android:endColor="?attr/blHeader2" android:angle="0"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_icon_btn.xml b/app/src/main/res/drawable/bg_icon_btn.xml
+index d49eb4e..cd69aa6 100644
+--- a/app/src/main/res/drawable/bg_icon_btn.xml
++++ b/app/src/main/res/drawable/bg_icon_btn.xml
+@@ -2,13 +2,13 @@
+ <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+     <item>
+         <shape android:shape="rectangle">
+-            <gradient android:startColor="#5500E5FF" android:endColor="#55FF2E88" android:angle="135"/>
++            <gradient android:startColor="?attr/blAccent1A" android:endColor="?attr/blAccent2A" android:angle="135"/>
+             <corners android:radius="13dp"/>
+         </shape>
+     </item>
+     <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
+         <shape android:shape="rectangle">
+-            <solid android:color="#0E1436"/>
++            <solid android:color="?attr/blSurface2"/>
+             <corners android:radius="12dp"/>
+         </shape>
+     </item>
+diff --git a/app/src/main/res/drawable/bg_input.xml b/app/src/main/res/drawable/bg_input.xml
+index 9563108..505a23f 100644
+--- a/app/src/main/res/drawable/bg_input.xml
++++ b/app/src/main/res/drawable/bg_input.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <solid android:color="#0A0F1E"/>
+-    <corners android:radius="8dp"/>
+-    <stroke android:width="1dp" android:color="#24304F"/>
++    <solid android:color="?attr/blBg2"/>
++    <corners android:radius="10dp"/>
++    <stroke android:width="1dp" android:color="?attr/blStroke"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_label_bar.xml b/app/src/main/res/drawable/bg_label_bar.xml
+index fcbb36e..ef557ff 100644
+--- a/app/src/main/res/drawable/bg_label_bar.xml
++++ b/app/src/main/res/drawable/bg_label_bar.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <gradient android:startColor="#00E5FF" android:endColor="#FF2E88" android:angle="270"/>
++    <gradient android:startColor="?attr/blAccent1" android:endColor="?attr/blAccent2" android:angle="270"/>
+     <corners android:radius="2dp"/>
+     <size android:width="3dp" android:height="12dp"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_main.xml b/app/src/main/res/drawable/bg_main.xml
+index d766449..30ae460 100644
+--- a/app/src/main/res/drawable/bg_main.xml
++++ b/app/src/main/res/drawable/bg_main.xml
+@@ -1,4 +1,4 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <gradient android:startColor="#0B1030" android:centerColor="#070A18" android:endColor="#04050C" android:angle="270"/>
++    <gradient android:startColor="?attr/blBg1" android:endColor="?attr/blBg2" android:angle="270"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/bg_neon_line.xml b/app/src/main/res/drawable/bg_neon_line.xml
+index 462e75a..161a8b9 100644
+--- a/app/src/main/res/drawable/bg_neon_line.xml
++++ b/app/src/main/res/drawable/bg_neon_line.xml
+@@ -1,4 +1,4 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+-    <gradient android:startColor="#00E5FF" android:centerColor="#7C4DFF" android:endColor="#FF2E88" android:angle="0"/>
++    <gradient android:startColor="?attr/blAccent1" android:centerColor="?attr/blAccent3" android:endColor="?attr/blAccent2" android:angle="0"/>
+ </shape>
+diff --git a/app/src/main/res/drawable/ic_bubble.xml b/app/src/main/res/drawable/ic_bubble.xml
+deleted file mode 100644
+index 7488a82..0000000
+--- a/app/src/main/res/drawable/ic_bubble.xml
++++ /dev/null
+@@ -1,16 +0,0 @@
+-<?xml version="1.0" encoding="utf-8"?>
+-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+-    <item>
+-        <shape android:shape="oval">
+-            <gradient android:startColor="#00E5FF" android:centerColor="#7C4DFF" android:endColor="#FF2E88" android:angle="135"/>
+-        </shape>
+-    </item>
+-    <item android:left="1.5dp" android:top="1.5dp" android:right="1.5dp" android:bottom="1.5dp">
+-        <shape android:shape="oval">
+-            <gradient android:startColor="#12183F" android:endColor="#030510" android:angle="135"/>
+-        </shape>
+-    </item>
+-    <item
+-        android:drawable="@drawable/ic_logo_mark"
+-        android:left="5dp" android:top="5dp" android:right="5dp" android:bottom="5dp" />
+-</layer-list>
+diff --git a/app/src/main/res/drawable/ic_ov_bolt.xml b/app/src/main/res/drawable/ic_ov_bolt.xml
+new file mode 100644
+index 0000000..23581bf
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ov_bolt.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:pathData="M13.5,3 L5.5,13.5 H11 L10,21 L18.5,10 H13 Z" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#33FFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ov_crown.xml b/app/src/main/res/drawable/ic_ov_crown.xml
+new file mode 100644
+index 0000000..f3748c6
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ov_crown.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:pathData="M4,17.5 L3,8 L8,12 L12,5.5 L16,12 L21,8 L20,17.5 Z" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#33FFFFFF"/>
++    <path android:pathData="M4.5,20.5 H19.5" android:strokeColor="#FFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ov_flame.xml b/app/src/main/res/drawable/ic_ov_flame.xml
+new file mode 100644
+index 0000000..cd0769c
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ov_flame.xml
+@@ -0,0 +1,5 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:pathData="M12,3 C13,6.5 17.5,8.5 17.5,13.5 A5.5,5.5 0 0 1 6.5,13.5 C6.5,10.5 8.5,9.5 9.5,7.5 C10.2,9 11,9.4 11.4,9.4 C12.4,7.4 12.2,5 12,3 Z" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#33FFFFFF"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ov_pad.xml b/app/src/main/res/drawable/ic_ov_pad.xml
+new file mode 100644
+index 0000000..b2e2685
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ov_pad.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:pathData="M7.5,8 H16.5 A4.5,4.5 0 0 1 21,12.5 V15 A2.2,2.2 0 0 1 16.8,16 L15.4,14 H8.6 L7.2,16 A2.2,2.2 0 0 1 3,15 V12.5 A4.5,4.5 0 0 1 7.5,8 Z" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#33FFFFFF"/>
++    <path android:pathData="M8,10.5 V13.5 M6.5,12 H9.5" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++    <path android:pathData="M15.5,11 H15.51 M18,13 H18.01" android:strokeColor="#FFFFFF" android:strokeWidth="2.6" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ov_sword.xml b/app/src/main/res/drawable/ic_ov_sword.xml
+new file mode 100644
+index 0000000..f5b9422
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ov_sword.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:pathData="M6.5,17.5 L18.5,5.5 M13.5,5.5 H18.5 V10.5" android:strokeColor="#FFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++    <path android:pathData="M7.5,11.5 L12.5,16.5 M5,19 L8.5,15.5 M4,20 L5.5,18.5" android:strokeColor="#FFFFFF" android:strokeWidth="1.9" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ov_target.xml b/app/src/main/res/drawable/ic_ov_target.xml
+new file mode 100644
+index 0000000..9f8b9c7
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ov_target.xml
+@@ -0,0 +1,7 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:pathData="M12,3 A9,9 0 1 0 12,21 A9,9 0 1 0 12,3 Z" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++    <path android:pathData="M12,7.5 A4.5,4.5 0 1 0 12,16.5 A4.5,4.5 0 1 0 12,7.5 Z" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++    <path android:pathData="M12,11 H12.01" android:strokeColor="#FFFFFF" android:strokeWidth="3" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++</vector>
+diff --git a/app/src/main/res/drawable/ic_ov_trophy.xml b/app/src/main/res/drawable/ic_ov_trophy.xml
+new file mode 100644
+index 0000000..fdf3030
+--- /dev/null
++++ b/app/src/main/res/drawable/ic_ov_trophy.xml
+@@ -0,0 +1,6 @@
++<?xml version="1.0" encoding="utf-8"?>
++<vector xmlns:android="http://schemas.android.com/apk/res/android"
++    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
++    <path android:pathData="M7,4 H17 V9 A5,5 0 0 1 7,9 Z" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#33FFFFFF"/>
++    <path android:pathData="M7,6 H4 V8 A3,3 0 0 0 7,11 M17,6 H20 V8 A3,3 0 0 1 17,11 M12,14 V18 M8,20.5 H16 M9.5,18 H14.5" android:strokeColor="#FFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000"/>
++</vector>
+diff --git a/app/src/main/res/values/attrs.xml b/app/src/main/res/values/attrs.xml
+new file mode 100644
+index 0000000..35085c3
+--- /dev/null
++++ b/app/src/main/res/values/attrs.xml
+@@ -0,0 +1,19 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <attr name="blBg1" format="color"/>
++    <attr name="blBg2" format="color"/>
++    <attr name="blHeader1" format="color"/>
++    <attr name="blHeader2" format="color"/>
++    <attr name="blSurface" format="color"/>
++    <attr name="blSurface2" format="color"/>
++    <attr name="blSurface3" format="color"/>
++    <attr name="blStroke" format="color"/>
++    <attr name="blAccent1" format="color"/>
++    <attr name="blAccent2" format="color"/>
++    <attr name="blAccent3" format="color"/>
++    <attr name="blAccent1B" format="color"/>
++    <attr name="blAccent1A" format="color"/>
++    <attr name="blAccent2A" format="color"/>
++    <attr name="blAccent1S" format="color"/>
++    <attr name="blAccent2S" format="color"/>
++</resources>
+diff --git a/app/src/main/res/values/themes.xml b/app/src/main/res/values/themes.xml
+index 237abd0..d7ed958 100644
+--- a/app/src/main/res/values/themes.xml
++++ b/app/src/main/res/values/themes.xml
+@@ -1,13 +1,175 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
++    <!-- Tema dasar aplikasi. Nilai bawaan = Neon Navy + Cyan Neon. Tema lain ditumpuk lewat applyStyle() -->
+     <style name="Theme.BracketLive" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+-        <item name="colorPrimary">@color/cyan</item>
+-        <item name="colorPrimaryVariant">@color/blue</item>
+-        <item name="colorSecondary">@color/magenta</item>
+-        <item name="android:statusBarColor">@color/bg</item>
+-        <item name="android:navigationBarColor">@color/bg</item>
+-        <item name="android:windowBackground">@color/bg</item>
++        <item name="blBg1">#0B1030</item>
++        <item name="blBg2">#04050C</item>
++        <item name="blHeader1">#1A2260</item>
++        <item name="blHeader2">#0A0E28</item>
++        <item name="blSurface">#111838</item>
++        <item name="blSurface2">#141B40</item>
++        <item name="blSurface3">#0B1024</item>
++        <item name="blStroke">#27346A</item>
++        <item name="blAccent1">#00E5FF</item>
++        <item name="blAccent2">#FF2E88</item>
++        <item name="blAccent3">#7C4DFF</item>
++        <item name="blAccent1B">#3D7BFF</item>
++        <item name="blAccent1A">#6600E5FF</item>
++        <item name="blAccent2A">#66FF2E88</item>
++        <item name="blAccent1S">#2200E5FF</item>
++        <item name="blAccent2S">#22FF2E88</item>
++        <item name="colorPrimary">?attr/blAccent1</item>
++        <item name="colorPrimaryVariant">?attr/blAccent1B</item>
++        <item name="colorSecondary">?attr/blAccent2</item>
++        <item name="android:statusBarColor">?attr/blBg1</item>
++        <item name="android:navigationBarColor">?attr/blBg2</item>
++        <item name="android:windowBackground">?attr/blBg2</item>
+         <item name="android:textColor">@color/text</item>
+         <item name="android:textColorPrimary">@color/text</item>
++        <item name="android:windowAnimationStyle">@style/BLWindowAnim</item>
+     </style>
++
++    <style name="BLWindowAnim" parent="">
++        <item name="android:activityOpenEnterAnimation">@anim/bl_slide_in_right</item>
++        <item name="android:activityOpenExitAnimation">@anim/bl_fade_out_left</item>
++        <item name="android:activityCloseEnterAnimation">@anim/bl_fade_in_left</item>
++        <item name="android:activityCloseExitAnimation">@anim/bl_slide_out_right</item>
++    </style>
++
++    <style name="BL.Base.Navy" parent="">
++        <item name="blBg1">#0B1030</item>
++        <item name="blBg2">#04050C</item>
++        <item name="blHeader1">#1A2260</item>
++        <item name="blHeader2">#0A0E28</item>
++        <item name="blSurface">#111838</item>
++        <item name="blSurface2">#141B40</item>
++        <item name="blSurface3">#0B1024</item>
++        <item name="blStroke">#27346A</item>
++        <item name="android:statusBarColor">?attr/blBg1</item>
++        <item name="android:navigationBarColor">?attr/blBg2</item>
++        <item name="android:windowBackground">?attr/blBg2</item>
++    </style>
++
++    <style name="BL.Base.Amoled" parent="">
++        <item name="blBg1">#000000</item>
++        <item name="blBg2">#000000</item>
++        <item name="blHeader1">#0C0C0C</item>
++        <item name="blHeader2">#050505</item>
++        <item name="blSurface">#0D0D10</item>
++        <item name="blSurface2">#131318</item>
++        <item name="blSurface3">#08080A</item>
++        <item name="blStroke">#2A2A33</item>
++        <item name="android:statusBarColor">?attr/blBg1</item>
++        <item name="android:navigationBarColor">?attr/blBg2</item>
++        <item name="android:windowBackground">?attr/blBg2</item>
++    </style>
++
++    <style name="BL.Base.Slate" parent="">
++        <item name="blBg1">#141A24</item>
++        <item name="blBg2">#0A0D13</item>
++        <item name="blHeader1">#222C3D</item>
++        <item name="blHeader2">#121823</item>
++        <item name="blSurface">#1A2230</item>
++        <item name="blSurface2">#202A3B</item>
++        <item name="blSurface3">#151B27</item>
++        <item name="blStroke">#33405A</item>
++        <item name="android:statusBarColor">?attr/blBg1</item>
++        <item name="android:navigationBarColor">?attr/blBg2</item>
++        <item name="android:windowBackground">?attr/blBg2</item>
++    </style>
++
++    <style name="BL.Base.Aurora" parent="">
++        <item name="blBg1">#1A0F36</item>
++        <item name="blBg2">#07040F</item>
++        <item name="blHeader1">#2D1A66</item>
++        <item name="blHeader2">#150C30</item>
++        <item name="blSurface">#1F1445</item>
++        <item name="blSurface2">#27195A</item>
++        <item name="blSurface3">#150D30</item>
++        <item name="blStroke">#3F2C80</item>
++        <item name="android:statusBarColor">?attr/blBg1</item>
++        <item name="android:navigationBarColor">?attr/blBg2</item>
++        <item name="android:windowBackground">?attr/blBg2</item>
++    </style>
++
++    <style name="BL.Base.Forest" parent="">
++        <item name="blBg1">#0A1F1A</item>
++        <item name="blBg2">#030907</item>
++        <item name="blHeader1">#103D32</item>
++        <item name="blHeader2">#082019</item>
++        <item name="blSurface">#0E2A23</item>
++        <item name="blSurface2">#12352B</item>
++        <item name="blSurface3">#0A1F1A</item>
++        <item name="blStroke">#1F5444</item>
++        <item name="android:statusBarColor">?attr/blBg1</item>
++        <item name="android:navigationBarColor">?attr/blBg2</item>
++        <item name="android:windowBackground">?attr/blBg2</item>
++    </style>
++
++    <style name="BL.Accent.Cyan" parent="">
++        <item name="blAccent1">#00E5FF</item>
++        <item name="blAccent2">#FF2E88</item>
++        <item name="blAccent3">#7C4DFF</item>
++        <item name="blAccent1B">#3D7BFF</item>
++        <item name="blAccent1A">#6600E5FF</item>
++        <item name="blAccent2A">#66FF2E88</item>
++        <item name="blAccent1S">#2200E5FF</item>
++        <item name="blAccent2S">#22FF2E88</item>
++    </style>
++
++    <style name="BL.Accent.Fire" parent="">
++        <item name="blAccent1">#FF8A00</item>
++        <item name="blAccent2">#FF2E4D</item>
++        <item name="blAccent3">#FFB800</item>
++        <item name="blAccent1B">#FF4D00</item>
++        <item name="blAccent1A">#66FF8A00</item>
++        <item name="blAccent2A">#66FF2E4D</item>
++        <item name="blAccent1S">#22FF8A00</item>
++        <item name="blAccent2S">#22FF2E4D</item>
++    </style>
++
++    <style name="BL.Accent.Emerald" parent="">
++        <item name="blAccent1">#00E5A0</item>
++        <item name="blAccent2">#00B3FF</item>
++        <item name="blAccent3">#7CFF6B</item>
++        <item name="blAccent1B">#00A86B</item>
++        <item name="blAccent1A">#6600E5A0</item>
++        <item name="blAccent2A">#6600B3FF</item>
++        <item name="blAccent1S">#2200E5A0</item>
++        <item name="blAccent2S">#2200B3FF</item>
++    </style>
++
++    <style name="BL.Accent.Gold" parent="">
++        <item name="blAccent1">#FFC83D</item>
++        <item name="blAccent2">#FF7A00</item>
++        <item name="blAccent3">#FFE27A</item>
++        <item name="blAccent1B">#E0A000</item>
++        <item name="blAccent1A">#66FFC83D</item>
++        <item name="blAccent2A">#66FF7A00</item>
++        <item name="blAccent1S">#22FFC83D</item>
++        <item name="blAccent2S">#22FF7A00</item>
++    </style>
++
++    <style name="BL.Accent.Violet" parent="">
++        <item name="blAccent1">#B388FF</item>
++        <item name="blAccent2">#FF4DA6</item>
++        <item name="blAccent3">#7C4DFF</item>
++        <item name="blAccent1B">#8F5BFF</item>
++        <item name="blAccent1A">#66B388FF</item>
++        <item name="blAccent2A">#66FF4DA6</item>
++        <item name="blAccent1S">#22B388FF</item>
++        <item name="blAccent2S">#22FF4DA6</item>
++    </style>
++
++    <style name="BL.Accent.Ice" parent="">
++        <item name="blAccent1">#4DB8FF</item>
++        <item name="blAccent2">#00E5FF</item>
++        <item name="blAccent3">#7C9BFF</item>
++        <item name="blAccent1B">#2979FF</item>
++        <item name="blAccent1A">#664DB8FF</item>
++        <item name="blAccent2A">#6600E5FF</item>
++        <item name="blAccent1S">#224DB8FF</item>
++        <item name="blAccent2S">#2200E5FF</item>
++    </style>
++
+ </resources>

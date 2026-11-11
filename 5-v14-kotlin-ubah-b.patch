@@ -1,0 +1,1114 @@
+diff --git a/README.md b/README.md
+index a1da23c..ed70753 100644
+--- a/README.md
++++ b/README.md
+@@ -15,6 +15,36 @@ Aplikasi bracket turnamen untuk live streaming — **Kotlin + XML**, tanpa HTML/
+ - Sertifikat juara yang bisa diedit sebelum disimpan (teks, logo, tema, tanda tangan tegak bersambung)
+ - Update otomatis: app mengecek rilis terbaru di GitHub lalu mengarahkan Download & Install
+ 
++## Pengaturan (v1.4)
++- **Tampilan:** 5 tema UI (Neon Navy, AMOLED, Slate, Ungu Aurora, Hutan Gelap), 6 warna aksen, saklar animasi
++- **Overlay:** toggle, ukuran 70–150%, transparansi panel, lama tahan ikon, 9 pilihan ikon (termasuk foto sendiri) dan 7 desain tombol
++- **Turnamen:** format bracket (Eliminasi penuh / Langsung Semifinal), poin per kill, poin per posisi
++- **Koneksi Live:** baca feed JSON custom room secara real-time
++
++## Mode 8 anggota
++Setiap game punya mode **CRF System (8 Anggota)** (sistem poin) dan **Eliminasi (8 Anggota)** (bracket).
++Roster 8 anggota diisi lewat tombol 👥 di baris tim (mode poin) atau tahan logo tim (mode bracket).
++
++## Koneksi Live (custom room)
++Game mobile tidak menyediakan API resmi untuk membaca room dari luar, jadi Bracket Live membaca **feed JSON**
++(HTTPS) yang diisi dari tool/bot/spreadsheet panitia. Tim yang ikut terdeteksi otomatis dan poin dihitung
++otomatis dari aturan di Pengaturan → Turnamen.
++
++```json
++{
++  "match": 1,
++  "teams": [
++    { "name": "EVOS", "kills": 5, "placement": 2, "members": ["A", "B", "C"] },
++    { "name": "RRQ",  "kills": 3, "placement": 1 }
++  ]
++}
++```
++Poin tim = kills × poin per kill + poin posisi. Nomor `match` yang berbeda dijumlahkan.
++
++## Sertifikat
++7 tema warna, 4 bentuk (Landscape, Portrait, Persegi, 16:9), background gambar sendiri, dan tanda tangan
++tegak bersambung dari nama panitia.
++
+ ## Update otomatis
+ Workflow `.github/workflows/build-apk.yml` membuat GitHub Release `build-<nomor>` berisi APK di setiap build.
+ Saat aplikasi dibuka, nomor build di app dibandingkan dengan rilis terbaru; kalau ada yang lebih baru
+diff --git a/app/src/main/java/com/gamebracket/overlay/MainActivity.kt b/app/src/main/java/com/gamebracket/overlay/MainActivity.kt
+index e4f7c68..d8cd6ce 100644
+--- a/app/src/main/java/com/gamebracket/overlay/MainActivity.kt
++++ b/app/src/main/java/com/gamebracket/overlay/MainActivity.kt
+@@ -22,6 +22,7 @@ import android.text.TextWatcher
+ import android.view.Gravity
+ import android.view.LayoutInflater
+ import android.view.View
++import android.view.ViewGroup
+ import android.widget.EditText
+ import android.widget.FrameLayout
+ import android.widget.GridLayout
+@@ -43,7 +44,7 @@ import java.text.SimpleDateFormat
+ import java.util.Date
+ import java.util.Locale
+ 
+-class MainActivity : AppCompatActivity() {
++class MainActivity : BaseActivity() {
+ 
+     private lateinit var tvGameTag: TextView
+     private lateinit var tvStatus: TextView
+@@ -73,6 +74,8 @@ class MainActivity : AppCompatActivity() {
+         }
+     }
+ 
++    private var lastChampion: String? = null
++
+     companion object {
+         private var updateChecked = false
+     }
+@@ -111,7 +114,7 @@ class MainActivity : AppCompatActivity() {
+             val w = live.paint.measureText(live.text.toString())
+             live.paint.shader = LinearGradient(
+                 0f, 0f, w, 0f,
+-                intArrayOf(col(R.color.cyan), col(R.color.magenta)), null, Shader.TileMode.CLAMP
++                intArrayOf(ThemeManager.accent1(this), ThemeManager.accent2(this)), null, Shader.TileMode.CLAMP
+             )
+             live.invalidate()
+         }
+@@ -143,21 +146,56 @@ class MainActivity : AppCompatActivity() {
+             updateChecked = true
+             updater.check(false)
+         }
++        if (Prefs.feedEnabled(this) && !LiveFeed.running) LiveFeed.start(this)
++
++        // animasi masuk + efek tekan
++        Anim.enterChildren(findViewById<ViewGroup>(R.id.contentContainer), 120, 70)
++        Anim.pressAll(window.decorView)
+     }
+ 
+     override fun onStart() {
+         super.onStart()
+-        AppVisibility.onStart()
++        LiveFeed.setListener("main") { changed -> runOnUiThread { onFeedUpdate(changed) } }
+     }
+ 
+     override fun onStop() {
+-        AppVisibility.onStop()
++        LiveFeed.setListener("main", null)
+         super.onStop()
+     }
+ 
++    /** Data dari Live Connect masuk: tim terdeteksi & poin diperbarui otomatis. */
++    private fun onFeedUpdate(changed: Boolean) {
++        if (LiveFeed.running) status(LiveFeed.status)
++        if (!changed) return
++        // jangan menggambar ulang saat pengguna sedang mengetik
++        if (currentFocus is EditText && emptyState.visibility != View.VISIBLE) return
++        val m = BracketStore.mode
++        if (m != null && emptyState.visibility == View.VISIBLE) {
++            val gid = BracketStore.gameId
++            if (gid != null) {
++                tvGameTag.text = BracketStore.games[gid]?.first ?: gid
++                gameButtons.forEach { (k, v) -> styleChoice(v, k == gid) }
++                buildModes(gid)
++            }
++            applyModeUi(m)
++        } else {
++            refreshFromStore()
++        }
++    }
++
+     override fun onResume() {
+         super.onResume()
+         updater.onResume()
++        // "Langsung semifinal" diaktifkan di Pengaturan → bracket menyesuaikan jadi 4 tim
++        val cur = BracketStore.mode
++        if (cur != null && cur.type != "br" && Prefs.semifinalOnly(this) && BracketStore.size != 4) {
++            BracketStore.size = 4
++            BracketStore.resetMatches()
++            BracketStore.ensurePlayers()
++            applyModeUi(cur)
++            return
++        }
++        updateSizeChips()
+         // Data bisa berubah dari overlay → segarkan tampilan
+         refreshFromStore()
+     }
+@@ -168,6 +206,7 @@ class MainActivity : AppCompatActivity() {
+         findViewById<TextView>(R.id.btnGame).setOnClickListener {
+             panelGame.visibility = View.VISIBLE
+             panelMode.visibility = View.GONE
++            Anim.reveal(panelGame)
+         }
+         findViewById<TextView>(R.id.btnMode).setOnClickListener {
+             if (BracketStore.gameId == null) {
+@@ -175,6 +214,7 @@ class MainActivity : AppCompatActivity() {
+             }
+             panelMode.visibility = View.VISIBLE
+             panelGame.visibility = View.GONE
++            Anim.reveal(panelMode)
+         }
+         findViewById<TextView>(R.id.btnSize4).setOnClickListener { setSize(4) }
+         findViewById<TextView>(R.id.btnSize8).setOnClickListener { setSize(8) }
+@@ -199,6 +239,7 @@ class MainActivity : AppCompatActivity() {
+             setMargins(dp(4), dp(4), dp(4), dp(4))
+         }
+         setOnClickListener { onClick() }
++        Anim.pressable(this)
+     }
+ 
+     private fun styleChoice(tv: TextView, active: Boolean) {
+@@ -235,6 +276,7 @@ class MainActivity : AppCompatActivity() {
+         gameButtons.forEach { (k, v) -> styleChoice(v, k == id) }
+         buildModes(id)
+         panelMode.visibility = View.VISIBLE
++        Anim.reveal(panelMode)
+         // otomatis pilih mode pertama
+         BracketStore.games[id]?.second?.firstOrNull()?.let { selectMode(it) }
+         status("Game: $name")
+@@ -257,11 +299,13 @@ class MainActivity : AppCompatActivity() {
+             bracketScroll.visibility = View.GONE
+             renderTeams()
+         } else {
+-            // bracket eliminasi harus pangkat 2
+-            if (Integer.bitCount(BracketStore.size) != 1) {
++            // bracket eliminasi harus pangkat 2; mode "langsung semifinal" (Pengaturan) = 4 tim
++            if (Prefs.semifinalOnly(this)) {
++                BracketStore.size = 4
++            } else if (Integer.bitCount(BracketStore.size) != 1) {
+                 BracketStore.size = 8
+-                updateSizeChips()
+             }
++            updateSizeChips()
+             BracketStore.ensurePlayers()
+             teamList.visibility = View.GONE
+             bracketScroll.visibility = View.VISIBLE
+@@ -269,15 +313,21 @@ class MainActivity : AppCompatActivity() {
+         }
+         champBox.visibility = View.VISIBLE
+         updateChampion()
++        Anim.reveal(if (mode.type == "br") teamList else bracketScroll)
+     }
+ 
+     private fun refreshFromStore() {
+         val m = BracketStore.mode ?: return
++        if (emptyState.visibility == View.VISIBLE) { applyModeUi(m); return }
+         if (m.type == "br") renderTeams() else renderBracket()
+         updateChampion()
+     }
+ 
+     private fun setSize(n: Int) {
++        if (Prefs.semifinalOnly(this) && BracketStore.mode?.type != "br") {
++            status("Mode langsung semifinal aktif (ubah di Pengaturan → Turnamen)")
++            return
++        }
+         BracketStore.size = n
+         BracketStore.resetMatches()
+         updateSizeChips()
+@@ -294,7 +344,10 @@ class MainActivity : AppCompatActivity() {
+ 
+     private fun updateSizeChips() {
+         listOf(4 to R.id.btnSize4, 8 to R.id.btnSize8, 16 to R.id.btnSize16).forEach { (v, id) ->
+-            styleChoice(findViewById(id), BracketStore.size == v)
++            val chip = findViewById<TextView>(id)
++            styleChoice(chip, BracketStore.size == v)
++            val locked = Prefs.semifinalOnly(this) && BracketStore.mode?.type != "br" && v != 4
++            chip.alpha = if (locked) 0.35f else 1f
+         }
+     }
+ 
+@@ -316,6 +369,18 @@ class MainActivity : AppCompatActivity() {
+             val etScore = row.findViewById<EditText>(R.id.etScore)
+             val btnDel = row.findViewById<TextView>(R.id.btnDel)
+             val ivLogo = row.findViewById<ImageView>(R.id.ivLogo)
++            val btnRoster = row.findViewById<TextView>(R.id.btnRoster)
++            val rosterSize = BracketStore.mode?.members ?: 0
++            if (rosterSize > 0) {
++                btnRoster.visibility = View.VISIBLE
++                btnRoster.text = "👥 ${team.members.count { it.isNotBlank() }}/$rosterSize"
++                btnRoster.setOnClickListener {
++                    RosterDialog.show(this, "Anggota ${team.name}", rosterSize, team.members) { list ->
++                        BracketStore.teams[idx].members = list.toMutableList()
++                        renderTeams()
++                    }
++                }
++            }
+             ivLogo.setImageDrawable(LogoHelper.drawable(this, team.name, team.logo, dp(36)))
+             ivLogo.setOnClickListener {
+                 pickLogo { path ->
+@@ -354,6 +419,7 @@ class MainActivity : AppCompatActivity() {
+             }
+             teamList.addView(row)
+         }
++        Anim.pressAll(teamList)
+     }
+ 
+     private fun renderBracket() {
+@@ -370,7 +436,15 @@ class MainActivity : AppCompatActivity() {
+             onWin = { msg ->
+                 msg?.let { status(it) }
+                 renderBracket()
+-            }
++            },
++            rosterSlot = if ((BracketStore.mode?.members ?: 0) > 0) { slot ->
++                val size = BracketStore.mode?.members ?: 0
++                BracketStore.ensurePlayers()
++                RosterDialog.show(this, "Anggota ${BracketStore.players[slot]}", size, BracketStore.playerMembers[slot]) { list ->
++                    BracketStore.playerMembers[slot] = list.toMutableList()
++                    status("Roster ${BracketStore.players[slot]} disimpan (${list.count { it.isNotBlank() }}/$size)")
++                }
++            } else null
+         )
+         updateChampion()
+     }
+@@ -385,10 +459,15 @@ class MainActivity : AppCompatActivity() {
+         if (ch != null) {
+             tvChampion.text = ch
+             btnCert.visibility = View.VISIBLE
++            if (ch != lastChampion && champBox.visibility == View.VISIBLE) {
++                Anim.pop(tvChampion)
++                ConfettiView.play(this)
++            }
+         } else {
+             tvChampion.text = "—"
+             btnCert.visibility = View.GONE
+         }
++        lastChampion = ch
+     }
+ 
+     // ───────────────────────── Actions ─────────────────────────
+diff --git a/app/src/main/java/com/gamebracket/overlay/OverlayService.kt b/app/src/main/java/com/gamebracket/overlay/OverlayService.kt
+index b3a27c8..88c0ee9 100644
+--- a/app/src/main/java/com/gamebracket/overlay/OverlayService.kt
++++ b/app/src/main/java/com/gamebracket/overlay/OverlayService.kt
+@@ -56,6 +56,9 @@ class OverlayService : Service() {
+ 
+         /** Dipanggil (di main thread) saat overlay menyala/mati, supaya toggle di app ikut sinkron. */
+         @Volatile var stateListener: ((Boolean) -> Unit)? = null
++
++        /** Pengaturan (ukuran/ikon/desain) berubah → overlay yang sedang jalan menyesuaikan langsung. */
++        @Volatile var onSettingsChanged: (() -> Unit)? = null
+     }
+ 
+     private lateinit var wm: WindowManager
+@@ -72,7 +75,9 @@ class OverlayService : Service() {
+     private var bubbleX = 0
+     private var bubbleY = 0
+     private var panelW = 0
+-    private lateinit var bubbleIcon: ImageView
++    private lateinit var bubbleIcon: View
++    private lateinit var ui: Context
++    private var scale = 1f
+     private lateinit var holdRing: HoldRingView
+     private var holdAnim: ValueAnimator? = null
+     private var holdDone = false
+@@ -91,6 +96,7 @@ class OverlayService : Service() {
+     override fun onCreate() {
+         super.onCreate()
+         wm = getSystemService(WINDOW_SERVICE) as WindowManager
++        ui = ThemeManager.themedContext(this)
+     }
+ 
+     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+@@ -142,10 +148,10 @@ class OverlayService : Service() {
+     // ───────────────────────── Window ─────────────────────────
+ 
+     private fun showOverlay() {
+-        val v = LayoutInflater.from(this).inflate(R.layout.overlay_bracket, null)
++        val v = LayoutInflater.from(ui).inflate(R.layout.overlay_bracket, null)
+         root = v
+         bubble = v.findViewById(R.id.bubble)
+-        bubbleIcon = v.findViewById(R.id.bubbleIcon)
++        bubbleIcon = v.findViewById(R.id.bubbleCore)
+         holdRing = v.findViewById(R.id.holdRing)
+         panel = v.findViewById(R.id.panel)
+         content = v.findViewById(R.id.overlayContent)
+@@ -153,10 +159,7 @@ class OverlayService : Service() {
+         tvChamp = v.findViewById(R.id.tvOverlayChamp)
+         tvStatus = v.findViewById(R.id.tvOverlayStatus)
+ 
+-        panelW = min(resources.displayMetrics.widthPixels - dp(16), dp(460))
+-        panel.layoutParams = panel.layoutParams.apply { width = panelW }
+-        val maxH = min(dp(420), (resources.displayMetrics.heightPixels * 0.5f).toInt())
+-        v.findViewById<MaxHeightScrollView>(R.id.overlayScroll).maxHeightPx = maxH
++        applyLook()
+ 
+         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+@@ -191,10 +194,45 @@ class OverlayService : Service() {
+         wm.addView(v, params)
+ 
+         // Ikon B hanya muncul saat pengguna berada di luar aplikasi
++        OverlayService.onSettingsChanged = { applyLook() }
++        LiveFeed.setListener("overlay") { changed -> if (changed && expanded && root?.findFocus() !is EditText) render() }
+         AppVisibility.listener = { fg -> applyForeground(fg) }
+         applyForeground(AppVisibility.inForeground)
+     }
+ 
++    /** Ukuran, desain tombol, ikon, dan latar panel dari Pengaturan. */
++    private fun applyLook() {
++        val r = root ?: return
++        scale = Prefs.overlayScale(this) / 100f
++        ui = ThemeManager.themedContext(this)
++
++        val outer = dp((54 * scale).toInt())
++        val core = dp((44 * scale).toInt())
++        bubble.layoutParams = bubble.layoutParams.apply { width = outer; height = outer }
++        bubbleIcon.layoutParams = bubbleIcon.layoutParams.apply { width = core; height = core }
++        r.findViewById<View>(R.id.holdRing).layoutParams = r.findViewById<View>(R.id.holdRing).layoutParams.apply { width = outer; height = outer }
++        (r.findViewById<View>(R.id.holdRing) as HoldRingView).setColors(
++            ThemeManager.accent1(ui), ThemeManager.accent3(ui), ThemeManager.accent2(ui)
++        )
++
++        val style = Prefs.bubbleStyle(this)
++        val iconIdx = Prefs.bubbleIcon(this)
++        val custom = Prefs.bubbleCustom(this)
++        r.findViewById<ImageView>(R.id.bubbleBg).setImageDrawable(BubbleFactory.background(ui, style, core))
++        val img = r.findViewById<ImageView>(R.id.bubbleImg)
++        val imgSize = if (iconIdx == BubbleFactory.CUSTOM_ICON && custom != null) (core * 0.78f).toInt() else (core * 0.6f).toInt()
++        img.layoutParams = img.layoutParams.apply { width = imgSize; height = imgSize }
++        BubbleFactory.applyIcon(ui, img, iconIdx, custom, imgSize)
++
++        panelW = min(resources.displayMetrics.widthPixels - dp(16), dp((460 * scale).toInt()))
++        panel.layoutParams = panel.layoutParams.apply { width = panelW }
++        val maxH = min(dp((420 * scale).toInt()), (resources.displayMetrics.heightPixels * 0.5f).toInt())
++        r.findViewById<MaxHeightScrollView>(R.id.overlayScroll).maxHeightPx = maxH
++        applyPanelStyle()
++        if (expanded) render()
++        updateWindow()
++    }
++
+     private fun applyForeground(fg: Boolean) {
+         val r = root ?: return
+         if (fg) {
+@@ -212,6 +250,7 @@ class OverlayService : Service() {
+         bubbleY = params.y
+         applyPanelStyle()
+         render()
++        Anim.enterChildren(content, 90, 45)
+         bubble.visibility = View.GONE
+         panel.visibility = View.VISIBLE
+         params.flags = flagsPanel
+@@ -426,7 +465,7 @@ class OverlayService : Service() {
+ 
+     private fun snapToEdge() {
+         val screenW = resources.displayMetrics.widthPixels
+-        val size = dp(54)
++        val size = dp((54 * scale).toInt())
+         val target = if (params.x + size / 2 < screenW / 2) dp(4) else screenW - size - dp(4)
+         ValueAnimator.ofInt(params.x, target).apply {
+             duration = 160
+@@ -460,12 +499,13 @@ class OverlayService : Service() {
+             if (mode.type == "br") renderTeams() else renderBracket()
+         }
+         updateChamp()
++        Anim.pressAll(content)
+     }
+ 
+     private fun renderTeams() {
+         val sorted = BracketStore.teams.mapIndexed { i, t -> i to t }.sortedByDescending { it.second.score }
+         sorted.forEachIndexed { rank, (_, team) ->
+-            val row = LinearLayout(this).apply {
++            val row = LinearLayout(ui).apply {
+                 orientation = LinearLayout.HORIZONTAL
+                 gravity = Gravity.CENTER_VERTICAL
+                 setBackgroundResource(R.drawable.bg_ov_card)
+@@ -476,7 +516,7 @@ class OverlayService : Service() {
+                 gravity = Gravity.CENTER
+                 layoutParams = LinearLayout.LayoutParams(dp(22), LinearLayout.LayoutParams.WRAP_CONTENT)
+             })
+-            row.addView(ImageView(this).apply {
++            row.addView(ImageView(ui).apply {
+                 val px = dp(28)
+                 setImageDrawable(LogoHelper.drawable(this@OverlayService, team.name, team.logo, px))
+                 layoutParams = LinearLayout.LayoutParams(px, px).apply { marginStart = dp(4); marginEnd = dp(4) }
+@@ -486,7 +526,8 @@ class OverlayService : Service() {
+                 team.score = max(0, team.score - 1)
+                 render()
+             })
+-            row.addView(label("${team.score}", 15f, R.color.cyan, true).apply {
++            row.addView(label("${team.score}", 15f, R.color.text, true).apply {
++                setTextColor(ThemeManager.accent1(ui))
+                 gravity = Gravity.CENTER
+                 layoutParams = LinearLayout.LayoutParams(dp(36), LinearLayout.LayoutParams.WRAP_CONTENT)
+             })
+@@ -511,22 +552,23 @@ class OverlayService : Service() {
+     }
+ 
+     private fun renderBracket() {
+-        val hs = HorizontalScrollView(this).apply {
++        val hs = HorizontalScrollView(ui).apply {
+             isHorizontalScrollBarEnabled = false
+             overScrollMode = View.OVER_SCROLL_NEVER
+         }
+-        val holder = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        val holder = LinearLayout(ui).apply { orientation = LinearLayout.HORIZONTAL }
+         hs.addView(holder)
+         content.addView(hs)
+         hScroll = hs
+         val cfg = BracketUi.Config(
+-            cardWidthDp = 156, rowHeightDp = 34, textSp = 12f, logoDp = 22, connectorDp = 20,
++            cardWidthDp = (156 * scale).toInt(), rowHeightDp = (34 * scale).toInt(), textSp = 12f * scale,
++            logoDp = (22 * scale).toInt(), connectorDp = 20,
+             cardBg = R.drawable.bg_ov_card, chipBg = R.drawable.bg_ov_chip
+         )
+-        BracketUi.build(this, holder, cfg, null) { msg ->
++        BracketUi.build(ui, holder, cfg, pickLogo = null, onWin = { msg ->
+             msg?.let { setStatus(it) }
+             render()
+-        }
++        })
+         val x = savedScrollX
+         hs.post { hs.scrollTo(x, 0) }
+ 
+@@ -560,14 +602,14 @@ class OverlayService : Service() {
+         LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
+     ).apply { bottomMargin = bottom }
+ 
+-    private fun label(text: String, sizeSp: Float, colorRes: Int, bold: Boolean) = TextView(this).apply {
++    private fun label(text: String, sizeSp: Float, colorRes: Int, bold: Boolean) = TextView(ui).apply {
+         this.text = text
+         textSize = sizeSp
+         setTextColor(col(colorRes))
+         if (bold) setTypeface(null, Typeface.BOLD)
+     }
+ 
+-    private fun nameField(value: String, colorRes: Int, onChange: (String) -> Unit) = EditText(this).apply {
++    private fun nameField(value: String, colorRes: Int, onChange: (String) -> Unit) = EditText(ui).apply {
+         setText(value)
+         setTextColor(col(colorRes))
+         setHintTextColor(col(R.color.dim))
+@@ -596,7 +638,7 @@ class OverlayService : Service() {
+     }
+ 
+     private fun actionRow(vararg actions: Pair<String, () -> Unit>): View {
+-        val row = LinearLayout(this).apply {
++        val row = LinearLayout(ui).apply {
+             orientation = LinearLayout.HORIZONTAL
+             layoutParams = rowParams(0).apply { topMargin = dp(4) }
+         }
+@@ -622,6 +664,8 @@ class OverlayService : Service() {
+ 
+     override fun onDestroy() {
+         AppVisibility.listener = null
++        OverlayService.onSettingsChanged = null
++        LiveFeed.setListener("overlay", null)
+         setRunning(false)
+         try { root?.let { wm.removeView(it) } } catch (_: Exception) {}
+         root = null
+diff --git a/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+index c98442f..6fec207 100644
+--- a/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
++++ b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+@@ -1,96 +1,86 @@
+ package com.gamebracket.overlay
+ 
++import android.content.Context
+ import android.content.Intent
++import android.content.res.ColorStateList
++import android.graphics.Typeface
+ import android.net.Uri
+ import android.os.Build
+ import android.os.Bundle
+ import android.provider.Settings
++import android.text.Editable
++import android.text.InputType
++import android.text.TextWatcher
++import android.view.Gravity
+ import android.view.View
++import android.view.ViewGroup
++import android.widget.EditText
++import android.widget.FrameLayout
++import android.widget.HorizontalScrollView
++import android.widget.ImageView
++import android.widget.LinearLayout
+ import android.widget.SeekBar
+ import android.widget.TextView
+ import android.widget.Toast
++import androidx.activity.result.contract.ActivityResultContracts
+ import androidx.appcompat.app.AlertDialog
+-import androidx.appcompat.app.AppCompatActivity
+ import androidx.appcompat.widget.SwitchCompat
+ import androidx.core.content.ContextCompat
+ import java.util.Locale
+ 
+-/** Pengaturan: toggle overlay, transparansi & lama tahan ikon, serta update aplikasi. */
+-class SettingsActivity : AppCompatActivity() {
++/** Pengaturan: tampilan, overlay, turnamen, koneksi live, dan update. Dibangun lewat kode. */
++class SettingsActivity : BaseActivity() {
+ 
+-    private lateinit var switchOverlay: SwitchCompat
+-    private lateinit var tvOverlayState: TextView
+-    private lateinit var dotOverlay: View
+-    private lateinit var tvOpacityVal: TextView
+-    private lateinit var tvHoldVal: TextView
+-    private lateinit var tvVersion: TextView
+-    private lateinit var tvUpdateStatus: TextView
++    private lateinit var box: LinearLayout
++    private val updater by lazy { UpdateFlow(this) { tvUpdateStatus?.text = it } }
+ 
+-    private val updater by lazy { UpdateFlow(this) { tvUpdateStatus.text = it } }
++    private var tvUpdateStatus: TextView? = null
++    private var tvFeedStatus: TextView? = null
++    private var tvOverlayState: TextView? = null
++    private var dotOverlay: View? = null
++    private var switchOverlay: SwitchCompat? = null
++    private var previewHolder: FrameLayout? = null
++    private var tilesHolder: LinearLayout? = null
+ 
+     private var suppressSwitch = false
+     private var pendingOverlay = false
+ 
++    private val iconPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
++        if (uri == null) return@registerForActivityResult
++        val path = LogoHelper.saveFromUri(this, uri)
++        if (path == null) {
++            Toast.makeText(this, "Gambar tidak bisa dibaca", Toast.LENGTH_SHORT).show()
++        } else {
++            Prefs.setBubbleCustom(this, path)
++            Prefs.setBubbleIcon(this, BubbleFactory.CUSTOM_ICON)
++            overlayLookChanged()
++        }
++    }
++
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         setContentView(R.layout.activity_settings)
+-
+-        switchOverlay = findViewById(R.id.switchOverlay)
+-        tvOverlayState = findViewById(R.id.tvOverlayState)
+-        dotOverlay = findViewById(R.id.dotOverlay)
+-        tvOpacityVal = findViewById(R.id.tvOpacityVal)
+-        tvHoldVal = findViewById(R.id.tvHoldVal)
+-        tvVersion = findViewById(R.id.tvVersion)
+-        tvUpdateStatus = findViewById(R.id.tvUpdateStatus)
+-
++        box = findViewById(R.id.settingsContainer)
+         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
+-
+-        switchOverlay.setOnCheckedChangeListener { _, checked ->
+-            if (suppressSwitch) return@setOnCheckedChangeListener
+-            if (checked) startOverlay() else stopOverlay()
+-        }
+-        setOverlaySwitch(OverlayService.isRunning)
+-
+-        // Transparansi panel: 30..100 %
+-        val sbOpacity = findViewById<SeekBar>(R.id.sbOpacity)
+-        sbOpacity.progress = Prefs.panelOpacity(this) - 30
+-        tvOpacityVal.text = "${Prefs.panelOpacity(this)}%"
+-        sbOpacity.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+-                Prefs.setPanelOpacity(this@SettingsActivity, 30 + p)
+-                tvOpacityVal.text = "${30 + p}%"
+-            }
+-            override fun onStartTrackingTouch(sb: SeekBar?) {}
+-            override fun onStopTrackingTouch(sb: SeekBar?) {}
+-        })
+-
+-        // Lama tahan ikon: 0,3 – 1,5 detik
+-        val sbHold = findViewById<SeekBar>(R.id.sbHold)
+-        sbHold.progress = (Prefs.holdMs(this) - 300) / 100
+-        tvHoldVal.text = holdText(Prefs.holdMs(this))
+-        sbHold.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+-            override fun onProgressChanged(sb: SeekBar?, p: Int, fromUser: Boolean) {
+-                val ms = 300 + p * 100
+-                Prefs.setHoldMs(this@SettingsActivity, ms)
+-                tvHoldVal.text = holdText(ms)
+-            }
+-            override fun onStartTrackingTouch(sb: SeekBar?) {}
+-            override fun onStopTrackingTouch(sb: SeekBar?) {}
+-        })
+-
+-        tvVersion.text = "Versi ${updater.versionName()}  (build ${updater.currentBuild()})"
+-        findViewById<View>(R.id.btnCheckUpdate).setOnClickListener { updater.check(true) }
++        buildAppearance()
++        buildOverlay()
++        buildTournament()
++        buildLive()
++        buildUpdate()
++        buildAbout()
++        Anim.enterChildren(box, 100, 70)
++        Anim.pressAll(box)
+     }
+ 
+     override fun onStart() {
+         super.onStart()
+-        AppVisibility.onStart()
+         OverlayService.stateListener = { on -> runOnUiThread { setOverlaySwitch(on) } }
++        LiveFeed.setListener("settings") { _ -> runOnUiThread { tvFeedStatus?.text = LiveFeed.status } }
+     }
+ 
+     override fun onStop() {
+         OverlayService.stateListener = null
+-        AppVisibility.onStop()
++        LiveFeed.setListener("settings", null)
+         super.onStop()
+     }
+ 
+@@ -105,15 +95,290 @@ class SettingsActivity : AppCompatActivity() {
+         updater.onResume()
+     }
+ 
+-    private fun holdText(ms: Int) = String.format(Locale("id"), "%.1f dtk", ms / 1000.0)
++    // ───────────────────────── Bagian: Tampilan ─────────────────────────
++
++    private fun buildAppearance() {
++        val c = card("TAMPILAN", neon = true)
++
++        label(c, "TEMA UI")
++        chips(c, ThemeManager.baseNames, Prefs.themeBase(this)) { i ->
++            Prefs.setThemeBase(this, i)
++            recreate()
++        }
++
++        label(c, "WARNA AKSEN")
++        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
++        val selected = Prefs.accent(this)
++        ThemeManager.accentPreview.forEachIndexed { i, cols ->
++            val dot = View(this).apply {
++                background = android.graphics.drawable.GradientDrawable(
++                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR, cols
++                ).apply {
++                    shape = android.graphics.drawable.GradientDrawable.OVAL
++                    if (i == selected) setStroke(dp(3), ContextCompat.getColor(this@SettingsActivity, R.color.text))
++                }
++                layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(10) }
++                contentDescription = ThemeManager.accentNames[i]
++                setOnClickListener {
++                    Prefs.setAccent(this@SettingsActivity, i)
++                    recreate()
++                }
++            }
++            row.addView(dot)
++        }
++        c.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) })
++        hint(c, "${ThemeManager.baseNames[Prefs.themeBase(this)]} · ${ThemeManager.accentNames[selected]}")
++
++        switchRow(c, "Animasi", "Transisi, efek tekan, confetti saat juara", Prefs.animations(this)) {
++            Prefs.setAnimations(this, it)
++        }
++    }
++
++    // ───────────────────────── Bagian: Overlay ─────────────────────────
++
++    private fun buildOverlay() {
++        val c = card("OVERLAY LIVE")
++
++        // toggle
++        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
++        dotOverlay = View(this).apply { layoutParams = LinearLayout.LayoutParams(dp(10), dp(10)) }
++        val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(10) } }
++        tvOverlayState = tv("Overlay Nonaktif", 16f, R.color.muted, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) }
++        texts.addView(tvOverlayState)
++        texts.addView(tv("Ikon melayang setelah kamu keluar dari app", 10f, R.color.muted, false))
++        switchOverlay = SwitchCompat(this).apply {
++            minimumHeight = dp(44)
++            thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)
++            trackTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_track)
++            setOnCheckedChangeListener { _, checked ->
++                if (suppressSwitch) return@setOnCheckedChangeListener
++                if (checked) startOverlay() else stopOverlay()
++            }
++        }
++        top.addView(dotOverlay); top.addView(texts); top.addView(switchOverlay)
++        c.addView(top)
++        setOverlaySwitch(OverlayService.isRunning)
++        divider(c)
++
++        // pratinjau + ukuran
++        label(c, "PRATINJAU TOMBOL")
++        previewHolder = FrameLayout(this).apply {
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96)).apply { topMargin = dp(8) }
++            setBackgroundResource(R.drawable.bg_chip)
++        }
++        c.addView(previewHolder)
++        refreshPreview()
++
++        slider(c, "UKURAN OVERLAY", 70, 150, Prefs.overlayScale(this), { "$it%" }) {
++            Prefs.setOverlayScale(this, it)
++            refreshPreview()
++            OverlayService.onSettingsChanged?.invoke()
++        }
++
++        label(c, "IKON OVERLAY")
++        tilesHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
++        c.addView(tilesHolder)
++        buildTiles()
++
++        slider(c, "TRANSPARANSI PANEL", 30, 100, Prefs.panelOpacity(this), { "$it%" }) {
++            Prefs.setPanelOpacity(this, it)
++            OverlayService.onSettingsChanged?.invoke()
++        }
++        slider(c, "TAHAN IKON UNTUK MEMBUKA", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
++            Prefs.setHoldMs(this, it)
++        }
++        hint(c, "Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live.")
++    }
++
++    /** Dua baris tile: desain tombol, lalu ikon. */
++    private fun buildTiles() {
++        val h = tilesHolder ?: return
++        h.removeAllViews()
++        val style = Prefs.bubbleStyle(this)
++        val icon = Prefs.bubbleIcon(this)
++        val custom = Prefs.bubbleCustom(this)
++        val ui = ThemeManager.themedContext(this)
++
++        h.addView(tv("Desain tombol", 10f, R.color.muted, false).apply { setPadding(0, dp(8), 0, dp(4)) })
++        val styleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        BubbleFactory.styleNames.forEachIndexed { i, name ->
++            val img = ImageView(this).apply {
++                setImageDrawable(BubbleFactory.background(ui, i, dp(44)))
++                layoutParams = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER)
++            }
++            styleRow.addView(tile(img, i == style, name) {
++                Prefs.setBubbleStyle(this, i)
++                overlayLookChanged()
++            })
++        }
++        h.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(styleRow) })
++
++        h.addView(tv("Gambar ikon", 10f, R.color.muted, false).apply { setPadding(0, dp(10), 0, dp(4)) })
++        val iconRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        BubbleFactory.iconNames.forEachIndexed { i, name ->
++            val cell = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER) }
++            cell.addView(ImageView(this).apply { setImageDrawable(BubbleFactory.background(ui, style, dp(44))) })
++            val glyph = ImageView(this).apply { layoutParams = FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER) }
++            if (i == BubbleFactory.CUSTOM_ICON) {
++                if (custom != null) BubbleFactory.applyIcon(ui, glyph, i, custom, dp(26))
++                else glyph.setImageResource(R.drawable.ic_ov_target)
++            } else {
++                BubbleFactory.applyIcon(ui, glyph, i, null, dp(26))
++            }
++            cell.addView(glyph)
++            iconRow.addView(tile(cell, i == icon, name) {
++                if (i == BubbleFactory.CUSTOM_ICON) {
++                    iconPicker.launch("image/*")
++                } else {
++                    Prefs.setBubbleIcon(this, i)
++                    overlayLookChanged()
++                }
++            })
++        }
++        h.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(iconRow) })
++        Anim.pressAll(h)
++    }
++
++    private fun tile(content: View, selected: Boolean, desc: String, onClick: () -> Unit): View {
++        val wrap = FrameLayout(this).apply {
++            setBackgroundResource(if (selected) R.drawable.bg_chip_active else R.drawable.bg_chip)
++            setPadding(dp(4), dp(4), dp(4), dp(4))
++            layoutParams = LinearLayout.LayoutParams(dp(54), dp(54)).apply { marginEnd = dp(8) }
++            contentDescription = desc
++            setOnClickListener { onClick() }
++        }
++        (content.parent as? ViewGroup)?.removeView(content)
++        wrap.addView(content)
++        return wrap
++    }
++
++    private fun overlayLookChanged() {
++        buildTiles()
++        refreshPreview()
++        OverlayService.onSettingsChanged?.invoke()
++    }
++
++    private fun refreshPreview() {
++        val h = previewHolder ?: return
++        h.removeAllViews()
++        val ui = ThemeManager.themedContext(this)
++        val scale = Prefs.overlayScale(this) / 100f
++        val core = dp((44 * scale).toInt())
++        val bg = ImageView(this).apply { setImageDrawable(BubbleFactory.background(ui, Prefs.bubbleStyle(this@SettingsActivity), core)) }
++        val iconIdx = Prefs.bubbleIcon(this)
++        val custom = Prefs.bubbleCustom(this)
++        val imgSize = if (iconIdx == BubbleFactory.CUSTOM_ICON && custom != null) (core * 0.78f).toInt() else (core * 0.6f).toInt()
++        val glyph = ImageView(this)
++        BubbleFactory.applyIcon(ui, glyph, iconIdx, custom, imgSize)
++        val cell = FrameLayout(this)
++        cell.addView(bg, FrameLayout.LayoutParams(core, core, Gravity.CENTER))
++        cell.addView(glyph, FrameLayout.LayoutParams(imgSize, imgSize, Gravity.CENTER))
++        h.addView(cell, FrameLayout.LayoutParams(core, core, Gravity.CENTER))
++        Anim.pop(cell)
++    }
++
++    // ───────────────────────── Bagian: Turnamen ─────────────────────────
++
++    private fun buildTournament() {
++        val c = card("TURNAMEN")
++
++        label(c, "FORMAT BRACKET")
++        chips(c, listOf("Eliminasi penuh", "Langsung Semifinal"), if (Prefs.semifinalOnly(this)) 1 else 0) { i ->
++            Prefs.setSemifinalOnly(this, i == 1)
++        }
++        hint(c, "Langsung Semifinal: 4 tim, babak pertama = semifinal lalu final. Berlaku untuk mode eliminasi.")
++
++        divider(c)
++        label(c, "POIN PER KILL")
++        field(c, Prefs.killPoint(this).toString(), "1", InputType.TYPE_CLASS_NUMBER) {
++            Prefs.setKillPoint(this, it.toIntOrNull() ?: 1)
++        }
++        label(c, "POIN POSISI (juara 1, 2, 3, … dipisah koma)")
++        field(c, Prefs.placementPoints(this), "12,9,8,7,6,5,4,3,2,1", InputType.TYPE_CLASS_TEXT) {
++            Prefs.setPlacementPoints(this, it.ifBlank { "12,9,8,7,6,5,4,3,2,1" })
++        }
++        hint(c, "Dipakai saat poin dihitung otomatis dari Koneksi Live. Poin tiap tim juga bisa diubah manual di layar utama.")
++    }
++
++    // ───────────────────────── Bagian: Koneksi Live ─────────────────────────
++
++    private fun buildLive() {
++        val c = card("KONEKSI LIVE (CUSTOM ROOM)")
++        hint(c, "Game mobile tidak punya API resmi untuk membaca room dari luar. Bracket Live membaca feed JSON (HTTPS) dari tool/bot/spreadsheet panitia: tim terdeteksi otomatis dan poin dihitung otomatis.")
++
++        label(c, "URL FEED (https://…)")
++        field(c, Prefs.feedUrl(this), "https://contoh.com/room.json", InputType.TYPE_TEXT_VARIATION_URI) {
++            Prefs.setFeedUrl(this, it.trim())
++        }
++        slider(c, "CEK ULANG TIAP", 5, 60, Prefs.feedInterval(this), { "$it dtk" }) {
++            Prefs.setFeedInterval(this, it)
++        }
++        switchRow(c, "Hubungkan", "Pantau room secara real-time", LiveFeed.running) { on ->
++            Prefs.setFeedEnabled(this, on)
++            if (on) {
++                if (Prefs.feedUrl(this).isBlank()) {
++                    Toast.makeText(this, "Isi URL feed dulu", Toast.LENGTH_SHORT).show()
++                } else LiveFeed.start(this)
++            } else LiveFeed.stop()
++        }
++        tvFeedStatus = tv(LiveFeed.status, 11f, R.color.text, true)
++        tvFeedStatus!!.setTextColor(ThemeManager.accent1(this))
++        tvFeedStatus!!.setPadding(0, dp(6), 0, 0)
++        c.addView(tvFeedStatus)
++        button(c, "Tes koneksi") {
++            tvFeedStatus?.text = "Menguji…"
++            LiveFeed.test(this) { tvFeedStatus?.text = it }
++        }
++        hint(c, "Format: {\"match\":1,\"teams\":[{\"name\":\"EVOS\",\"kills\":5,\"placement\":2,\"members\":[\"A\",\"B\"]}]}")
++    }
++
++    // ───────────────────────── Bagian: Update & Tentang ─────────────────────────
++
++    private fun buildUpdate() {
++        val c = card("UPDATE APLIKASI")
++        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
++        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
++        col.addView(tv("Versi ${updater.versionName()}  (build ${updater.currentBuild()})", 15f, R.color.text, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) })
++        tvUpdateStatus = tv("Ketuk tombol untuk mengecek versi terbaru", 10f, R.color.muted, false)
++        col.addView(tvUpdateStatus)
++        row.addView(col)
++        row.addView(TextView(this).apply {
++            text = "Cek Update"
++            gravity = Gravity.CENTER
++            setTextColor(android.graphics.Color.WHITE)
++            textSize = 12f
++            setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
++            setPadding(dp(18), 0, dp(18), 0)
++            setBackgroundResource(R.drawable.bg_btn_primary)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40))
++            setOnClickListener { updater.check(true) }
++        })
++        c.addView(row)
++    }
++
++    private fun buildAbout() {
++        val c = card("TENTANG", plain = true)
++        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
++        row.addView(ImageView(this).apply {
++            setImageResource(R.drawable.ic_logo)
++            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
++        })
++        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) } }
++        col.addView(tv("Bracket Live", 14f, R.color.text, true))
++        col.addView(tv("Bracket turnamen untuk live streaming", 10f, R.color.muted, false))
++        row.addView(col)
++        c.addView(row)
++    }
++
++    // ───────────────────────── Overlay on/off ─────────────────────────
+ 
+     private fun setOverlaySwitch(on: Boolean) {
+         suppressSwitch = true
+-        switchOverlay.isChecked = on
++        switchOverlay?.isChecked = on
+         suppressSwitch = false
+-        tvOverlayState.text = if (on) "Overlay Aktif" else "Overlay Nonaktif"
+-        tvOverlayState.setTextColor(ContextCompat.getColor(this, if (on) R.color.green else R.color.muted))
+-        dotOverlay.setBackgroundResource(if (on) R.drawable.bg_dot_on else R.drawable.bg_dot_off)
++        tvOverlayState?.text = if (on) "Overlay Aktif" else "Overlay Nonaktif"
++        tvOverlayState?.setTextColor(ContextCompat.getColor(this, if (on) R.color.green else R.color.muted))
++        dotOverlay?.setBackgroundResource(if (on) R.drawable.bg_dot_on else R.drawable.bg_dot_off)
+     }
+ 
+     private fun startOverlay() {
+@@ -124,9 +389,7 @@ class SettingsActivity : AppCompatActivity() {
+                 .setMessage("Aktifkan izin \"Tampil di atas aplikasi lain\" untuk Bracket Live, lalu kembali ke aplikasi ini.")
+                 .setPositiveButton("Buka Settings") { _, _ ->
+                     pendingOverlay = true
+-                    startActivity(
+-                        Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+-                    )
++                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                 }
+                 .setNegativeButton("Batal", null)
+                 .show()
+@@ -135,11 +398,155 @@ class SettingsActivity : AppCompatActivity() {
+         val i = Intent(this, OverlayService::class.java)
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+         setOverlaySwitch(true)
+-        Toast.makeText(this, "Overlay aktif — keluar dari app, ikon B akan muncul", Toast.LENGTH_LONG).show()
++        Toast.makeText(this, "Overlay aktif — keluar dari app, ikon akan muncul", Toast.LENGTH_LONG).show()
+     }
+ 
+     private fun stopOverlay() {
+         stopService(Intent(this, OverlayService::class.java))
+         setOverlaySwitch(false)
+     }
++
++    // ───────────────────────── Pembangun UI ─────────────────────────
++
++    private fun card(title: String, neon: Boolean = false, plain: Boolean = false): LinearLayout {
++        val c = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(dp(16), dp(16), dp(16), dp(16))
++            setBackgroundResource(if (neon) R.drawable.bg_card_neon else R.drawable.bg_card)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14) }
++        }
++        c.addView(TextView(this, null, 0, R.style.SectionLabel).apply { text = title })
++        box.addView(c)
++        return c
++    }
++
++    private fun tv(text: String, sp: Float, colorRes: Int, bold: Boolean) = TextView(this).apply {
++        this.text = text
++        textSize = sp
++        setTextColor(ContextCompat.getColor(this@SettingsActivity, colorRes))
++        if (bold) setTypeface(typeface, Typeface.BOLD)
++    }
++
++    private fun label(parent: LinearLayout, text: String) {
++        parent.addView(TextView(this, null, 0, R.style.SectionLabel).apply {
++            this.text = text
++            setPadding(0, dp(14), 0, 0)
++        })
++    }
++
++    private fun hint(parent: LinearLayout, text: String) {
++        parent.addView(tv(text, 10f, R.color.muted, false).apply { setPadding(0, dp(6), 0, 0) })
++    }
++
++    private fun divider(parent: LinearLayout) {
++        parent.addView(View(this).apply {
++            setBackgroundColor(0x22FFFFFF)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1).apply { topMargin = dp(14) }
++        })
++    }
++
++    private fun button(parent: LinearLayout, text: String, onClick: () -> Unit) {
++        parent.addView(TextView(this).apply {
++            this.text = text
++            gravity = Gravity.CENTER
++            textSize = 12f
++            setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
++            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.muted_light))
++            setBackgroundResource(R.drawable.bg_btn_gray)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42)).apply { topMargin = dp(10) }
++            setOnClickListener { onClick() }
++        })
++    }
++
++    private fun switchRow(parent: LinearLayout, title: String, sub: String, checked: Boolean, onChange: (Boolean) -> Unit): SwitchCompat {
++        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(12), 0, 0) }
++        val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
++        col.addView(tv(title, 14f, R.color.text, true))
++        col.addView(tv(sub, 10f, R.color.muted, false))
++        val sw = SwitchCompat(this).apply {
++            minimumHeight = dp(44)
++            thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)
++            trackTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_track)
++            isChecked = checked
++            setOnCheckedChangeListener { _, v -> onChange(v) }
++        }
++        row.addView(col); row.addView(sw)
++        parent.addView(row)
++        return sw
++    }
++
++    private fun chips(parent: LinearLayout, names: List<String>, selected: Int, onSelect: (Int) -> Unit) {
++        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
++        val views = ArrayList<TextView>()
++        fun paint(sel: Int) = views.forEachIndexed { i, v ->
++            v.setBackgroundResource(if (i == sel) R.drawable.bg_chip_active else R.drawable.bg_chip)
++            v.setTextColor(ContextCompat.getColor(this, if (i == sel) R.color.on_accent else R.color.muted_light))
++        }
++        names.forEachIndexed { i, n ->
++            val v = TextView(this).apply {
++                text = n
++                gravity = Gravity.CENTER
++                textSize = 12f
++                setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
++                setPadding(dp(16), 0, dp(16), 0)
++                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40)).apply { marginEnd = dp(8) }
++                setOnClickListener { paint(i); onSelect(i) }
++            }
++            views.add(v)
++            row.addView(v)
++        }
++        paint(selected)
++        parent.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) })
++    }
++
++    private fun slider(parent: LinearLayout, title: String, min: Int, max: Int, value: Int, fmt: (Int) -> String, step: Int = 1, onChange: (Int) -> Unit) {
++        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(14), 0, 0) }
++        head.addView(TextView(this, null, 0, R.style.SectionLabel).apply {
++            text = title
++            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
++        })
++        val tvVal = tv(fmt(value), 12f, R.color.text, true).apply { setTextColor(ThemeManager.accent1(this@SettingsActivity)) }
++        head.addView(tvVal)
++        parent.addView(head)
++        val sb = SeekBar(this).apply {
++            this.max = (max - min) / step
++            progress = (value - min) / step
++            val tint = ColorStateList.valueOf(ThemeManager.accent1(this@SettingsActivity))
++            progressTintList = tint
++            thumbTintList = tint
++            progressBackgroundTintList = ColorStateList.valueOf(0xFF2C3A75.toInt())
++            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
++                override fun onProgressChanged(s: SeekBar?, p: Int, fromUser: Boolean) {
++                    val v = min + p * step
++                    tvVal.text = fmt(v)
++                    if (fromUser) onChange(v)
++                }
++                override fun onStartTrackingTouch(s: SeekBar?) {}
++                override fun onStopTrackingTouch(s: SeekBar?) {}
++            })
++        }
++        parent.addView(sb, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(2) })
++    }
++
++    private fun field(parent: LinearLayout, value: String, hintText: String, inputType: Int, onChange: (String) -> Unit) {
++        parent.addView(EditText(this).apply {
++            setText(value)
++            hint = hintText
++            setHintTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.dim))
++            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text))
++            textSize = 13f
++            setSingleLine()
++            this.inputType = inputType
++            setPadding(dp(14), 0, dp(14), 0)
++            setBackgroundResource(R.drawable.bg_input)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)).apply { topMargin = dp(8) }
++            addTextChangedListener(object : TextWatcher {
++                override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
++                override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
++                override fun afterTextChanged(s: Editable?) { onChange(s?.toString() ?: "") }
++            })
++        })
++    }
++
++    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+ }
