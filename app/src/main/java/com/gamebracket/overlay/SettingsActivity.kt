@@ -3,6 +3,7 @@ package com.gamebracket.overlay
 import android.content.Context
 import android.content.Intent
 import android.content.res.ColorStateList
+import android.graphics.Color
 import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
@@ -14,11 +15,13 @@ import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.widget.BaseAdapter
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ListView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -36,6 +39,13 @@ class SettingsActivity : BaseActivity() {
 
     private var tvUpdateStatus: TextView? = null
     private var tvFeedStatus: TextView? = null
+    private var tvLiveSummary: TextView? = null
+    private var tvGameName: TextView? = null
+    private var ivLiveGame: ImageView? = null
+    private var btnConnect: TextView? = null
+    private var btnUsage: TextView? = null
+    private var tvUsageHint: TextView? = null
+    private var lastSummary: TextView? = null
     private var tvOverlayState: TextView? = null
     private var dotOverlay: View? = null
     private var switchOverlay: SwitchCompat? = null
@@ -76,7 +86,7 @@ class SettingsActivity : BaseActivity() {
     override fun onStart() {
         super.onStart()
         OverlayService.stateListener = { on -> runOnUiThread { setOverlaySwitch(on) } }
-        LiveFeed.setListener("settings") { _ -> runOnUiThread { tvFeedStatus?.text = LiveFeed.status } }
+        LiveFeed.setListener("settings") { _ -> runOnUiThread { refreshLiveUi() } }
     }
 
     override fun onStop() {
@@ -94,12 +104,13 @@ class SettingsActivity : BaseActivity() {
             setOverlaySwitch(OverlayService.isRunning)
         }
         updater.onResume()
+        refreshLiveUi() // izin "Akses penggunaan" mungkin baru diberikan
     }
 
     // ───────────────────────── Bagian: Tampilan ─────────────────────────
 
     private fun buildAppearance() {
-        val c = card("TAMPILAN", neon = true)
+        val c = card("TAMPILAN", neon = true, summary = "Tema, warna aksen, animasi")
 
         label(c, "TEMA UI")
         chips(c, ThemeManager.baseNames, Prefs.themeBase(this)) { i ->
@@ -138,7 +149,7 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Overlay ─────────────────────────
 
     private fun buildOverlay() {
-        val c = card("OVERLAY LIVE")
+        val c = card("OVERLAY LIVE", summary = "Ikon melayang, ukuran, tahan untuk membuka", open = true)
 
         // toggle
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
@@ -146,7 +157,7 @@ class SettingsActivity : BaseActivity() {
         val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(10) } }
         tvOverlayState = tv("Overlay Nonaktif", 16f, R.color.muted, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) }
         texts.addView(tvOverlayState)
-        texts.addView(tv("Ikon melayang setelah kamu keluar dari app", 10f, R.color.muted, false))
+        texts.addView(tv("Ikon melayang setelah kamu keluar dari app", 11f, R.color.muted, false))
         switchOverlay = SwitchCompat(this).apply {
             minimumHeight = dp(44)
             thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)
@@ -197,7 +208,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun buildPanel() {
-        val c = card("DESAIN & UKURAN PANEL", neon = true)
+        val c = card("DESAIN & UKURAN PANEL", neon = true, summary = "Desain, transparansi, lebar, tinggi, zoom")
         hint(c, "Panel adalah jendela bracket yang terbuka saat ikon ditahan. Ukurannya juga bisa diubah langsung dengan menggeser pojok kiri/kanan bawah panel.")
 
         label(c, "PRATINJAU PANEL")
@@ -269,7 +280,7 @@ class SettingsActivity : BaseActivity() {
         val custom = Prefs.bubbleCustom(this)
         val ui = ThemeManager.themedContext(this)
 
-        h.addView(tv("Desain tombol", 10f, R.color.muted, false).apply { setPadding(0, dp(8), 0, dp(4)) })
+        h.addView(tv("Desain tombol", 11f, R.color.muted, false).apply { setPadding(0, dp(8), 0, dp(4)) })
         val styleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         BubbleFactory.styleNames.forEachIndexed { i, name ->
             val img = ImageView(this).apply {
@@ -283,7 +294,7 @@ class SettingsActivity : BaseActivity() {
         }
         h.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(styleRow) })
 
-        h.addView(tv("Gambar ikon", 10f, R.color.muted, false).apply { setPadding(0, dp(10), 0, dp(4)) })
+        h.addView(tv("Gambar ikon", 11f, R.color.muted, false).apply { setPadding(0, dp(10), 0, dp(4)) })
         val iconRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         BubbleFactory.iconNames.forEachIndexed { i, name ->
             val cell = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER) }
@@ -350,7 +361,7 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Turnamen ─────────────────────────
 
     private fun buildTournament() {
-        val c = card("TURNAMEN")
+        val c = card("TURNAMEN", summary = "Format bracket, poin kill & posisi")
 
         label(c, "FORMAT BRACKET")
         chips(c, listOf("Eliminasi penuh", "Langsung Semifinal"), if (Prefs.semifinalOnly(this)) 1 else 0) { i ->
@@ -373,43 +384,248 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Koneksi Live ─────────────────────────
 
     private fun buildLive() {
-        val c = card("KONEKSI LIVE (CUSTOM ROOM)")
-        hint(c, "Game mobile tidak punya API resmi untuk membaca room dari luar. Bracket Live membaca feed JSON (HTTPS) dari tool/bot/spreadsheet panitia: tim terdeteksi otomatis dan poin dihitung otomatis.")
+        val c = card("KONEKSI LIVE", summary = LiveFeed.status)
+        tvLiveSummary = lastSummary
+        hint(c, "Pilih game yang terpasang di HP kamu lalu hubungkan. Bracket Live mendeteksi kapan game dibuka, dan overlay langsung tampil di atas game. Tidak perlu memasukkan link.")
 
-        label(c, "URL FEED (https://…)")
-        field(c, Prefs.feedUrl(this), "https://contoh.com/room.json", InputType.TYPE_TEXT_VARIATION_URI) {
+        // kartu game terpilih
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            setBackgroundResource(R.drawable.bg_match)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
+        }
+        ivLiveGame = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)) }
+        val col = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) }
+        }
+        tvGameName = tv("", 14f, R.color.text, true)
+        tvFeedStatus = tv("", 11f, R.color.muted, false).apply { setPadding(0, dp(2), 0, 0) }
+        col.addView(tvGameName)
+        col.addView(tvFeedStatus)
+        row.addView(ivLiveGame)
+        row.addView(col)
+        c.addView(row)
+
+        c.addView(actionBtn("Pilih game di perangkat", false) { pickGame(false) }.apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)).apply { topMargin = dp(10) }
+        })
+
+        val btns = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+        }
+        btnConnect = actionBtn("Hubungkan", true) { toggleConnect() }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginEnd = dp(8) }
+        }
+        btns.addView(btnConnect)
+        btns.addView(actionBtn("Buka game", false) { openGame() }.apply {
+            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f)
+        })
+        c.addView(btns)
+
+        // izin Akses penggunaan (supaya app tahu game sedang dibuka)
+        tvUsageHint = tv("Aktifkan \"Akses penggunaan\" untuk Bracket Live supaya bisa tahu kapan game dibuka.", 11f, R.color.muted, false).apply { setPadding(0, dp(12), 0, 0) }
+        c.addView(tvUsageHint)
+        btnUsage = actionBtn("Beri akses penggunaan", false) { openUsageSettings() }.apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42)).apply { topMargin = dp(6) }
+        }
+        c.addView(btnUsage)
+
+        // sumber data otomatis (opsional, disembunyikan)
+        divider(c)
+        val hasFeed = Prefs.feedUrl(this).isNotBlank()
+        val adv = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = if (hasFeed) View.VISIBLE else View.GONE
+        }
+        val advHead = tv(if (hasFeed) "SUMBER DATA OTOMATIS (OPSIONAL)  ▴" else "SUMBER DATA OTOMATIS (OPSIONAL)  ▾", 11f, R.color.muted_light, true).apply {
+            setPadding(0, dp(14), 0, dp(6))
+            setOnClickListener {
+                val show = adv.visibility != View.VISIBLE
+                adv.visibility = if (show) View.VISIBLE else View.GONE
+                text = if (show) "SUMBER DATA OTOMATIS (OPSIONAL)  ▴" else "SUMBER DATA OTOMATIS (OPSIONAL)  ▾"
+            }
+        }
+        c.addView(advHead)
+        c.addView(adv)
+        hint(adv, "Game mobile tidak menyediakan data room untuk aplikasi lain, jadi skor tidak bisa dibaca langsung dari game. Kalau panitia punya feed JSON (tool/bot/spreadsheet), isi URL-nya agar tim & poin terisi otomatis. Tidak wajib.")
+        label(adv, "URL FEED (https://…)")
+        field(adv, Prefs.feedUrl(this), "https://contoh.com/room.json", InputType.TYPE_TEXT_VARIATION_URI) {
             Prefs.setFeedUrl(this, it.trim())
         }
-        slider(c, "CEK ULANG TIAP", 5, 60, Prefs.feedInterval(this), { "$it dtk" }) {
+        slider(adv, "CEK ULANG TIAP", 5, 60, Prefs.feedInterval(this), { "$it dtk" }) {
             Prefs.setFeedInterval(this, it)
         }
-        switchRow(c, "Hubungkan", "Pantau room secara real-time", LiveFeed.running) { on ->
-            Prefs.setFeedEnabled(this, on)
-            if (on) {
-                if (Prefs.feedUrl(this).isBlank()) {
-                    Toast.makeText(this, "Isi URL feed dulu", Toast.LENGTH_SHORT).show()
-                } else LiveFeed.start(this)
-            } else LiveFeed.stop()
-        }
-        tvFeedStatus = tv(LiveFeed.status, 11f, R.color.text, true)
-        tvFeedStatus!!.setTextColor(ThemeManager.accent1(this))
-        tvFeedStatus!!.setPadding(0, dp(6), 0, 0)
-        c.addView(tvFeedStatus)
-        button(c, "Tes koneksi") {
+        button(adv, "Tes koneksi feed") {
             tvFeedStatus?.text = "Menguji…"
             LiveFeed.test(this) { tvFeedStatus?.text = it }
         }
-        hint(c, "Format: {\"match\":1,\"teams\":[{\"name\":\"EVOS\",\"kills\":5,\"placement\":2,\"members\":[\"A\",\"B\"]}]}")
+        hint(adv, "Format: {\"match\":1,\"teams\":[{\"name\":\"EVOS\",\"kills\":5,\"placement\":2,\"members\":[\"A\",\"B\"]}]}")
+
+        refreshLiveUi()
+    }
+
+    private fun refreshLiveUi() {
+        val pkg = Prefs.liveGamePkg(this)
+        val name = Prefs.liveGameName(this)
+        val running = LiveFeed.running
+        tvGameName?.text = if (pkg.isEmpty()) "Belum ada game dipilih" else name
+        tvFeedStatus?.text = when {
+            running -> LiveFeed.status
+            pkg.isEmpty() -> "Ketuk \"Pilih game di perangkat\""
+            else -> "Belum terhubung"
+        }
+        tvFeedStatus?.setTextColor(
+            if (running) ThemeManager.accent1(this) else ContextCompat.getColor(this, R.color.muted)
+        )
+        tvLiveSummary?.text = when {
+            running -> LiveFeed.status
+            pkg.isEmpty() -> "Belum ada game dipilih"
+            else -> "$name · belum terhubung"
+        }
+        btnConnect?.text = if (running) "Putuskan" else "Hubungkan"
+        val icon = if (pkg.isNotEmpty()) {
+            try { packageManager.getApplicationIcon(pkg) } catch (e: Exception) { null }
+        } else null
+        if (icon != null) ivLiveGame?.setImageDrawable(icon) else ivLiveGame?.setImageResource(R.drawable.ic_ov_pad)
+        val needUsage = pkg.isNotEmpty() && !GameWatcher.hasAccess(this)
+        tvUsageHint?.visibility = if (needUsage) View.VISIBLE else View.GONE
+        btnUsage?.visibility = if (needUsage) View.VISIBLE else View.GONE
+    }
+
+    private fun openUsageSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
+        } catch (e: Exception) {
+            Toast.makeText(this, "Buka Settings → Akses penggunaan → Bracket Live", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    /** Hubungkan / putuskan koneksi live. */
+    private fun toggleConnect() {
+        if (LiveFeed.running) {
+            Prefs.setFeedEnabled(this, false)
+            LiveFeed.stop()
+        } else {
+            if (Prefs.liveGamePkg(this).isEmpty() && Prefs.feedUrl(this).isBlank()) {
+                Toast.makeText(this, "Pilih game dulu", Toast.LENGTH_SHORT).show()
+                pickGame(false)
+                return
+            }
+            Prefs.setFeedEnabled(this, true)
+            LiveFeed.start(this)
+        }
+        refreshLiveUi()
+    }
+
+    private fun openGame() {
+        val pkg = Prefs.liveGamePkg(this)
+        if (pkg.isEmpty()) {
+            Toast.makeText(this, "Pilih game dulu", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val launch = packageManager.getLaunchIntentForPackage(pkg)
+        if (launch == null) {
+            Toast.makeText(this, "Game tidak ditemukan di perangkat", Toast.LENGTH_LONG).show()
+            return
+        }
+        startActivity(launch)
+    }
+
+    /** Dialog daftar game yang terpasang. Kalau tak ada game terdeteksi, langsung tampilkan semua aplikasi. */
+    private fun pickGame(includeAll: Boolean) {
+        Thread {
+            val list = InstalledGames.load(this, includeAll)
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                if (list.isEmpty() && !includeAll) {
+                    pickGame(true)
+                    return@runOnUiThread
+                }
+                val lv = ListView(this)
+                lv.adapter = GameAdapter(list)
+                val b = AlertDialog.Builder(this)
+                    .setTitle(if (includeAll) "Semua aplikasi" else "Pilih game")
+                    .setView(lv)
+                    .setNegativeButton("Batal", null)
+                if (!includeAll) b.setNeutralButton("Semua aplikasi") { _, _ -> pickGame(true) }
+                val dlg = b.create()
+                lv.setOnItemClickListener { _, _, pos, _ ->
+                    dlg.dismiss()
+                    onGameChosen(list[pos])
+                }
+                dlg.show()
+            }
+        }.start()
+    }
+
+    private fun onGameChosen(app: InstalledGames.App) {
+        Prefs.setLiveGame(this, app.pkg, app.label)
+        // samakan pilihan game turnamen kalau game ini dikenali dan belum ada mode terpilih
+        app.gameId?.let { id -> if (BracketStore.mode == null) BracketStore.gameId = id }
+        // langsung terhubung
+        Prefs.setFeedEnabled(this, true)
+        LiveFeed.stop()
+        LiveFeed.start(this)
+        refreshLiveUi()
+        if (!GameWatcher.hasAccess(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Izin Akses penggunaan")
+                .setMessage("Supaya Bracket Live tahu kapan ${app.label} dibuka, aktifkan \"Akses penggunaan\" untuk Bracket Live, lalu kembali ke sini.")
+                .setPositiveButton("Buka Settings") { _, _ -> openUsageSettings() }
+                .setNegativeButton("Nanti", null)
+                .show()
+        } else {
+            Toast.makeText(this, "Terhubung ke ${app.label}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private inner class GameAdapter(private val items: List<InstalledGames.App>) : BaseAdapter() {
+        override fun getCount() = items.size
+        override fun getItem(position: Int) = items[position]
+        override fun getItemId(position: Int) = position.toLong()
+        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
+            val app = items[position]
+            val row = LinearLayout(this@SettingsActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(20), dp(10), dp(20), dp(10))
+            }
+            row.addView(ImageView(this@SettingsActivity).apply {
+                setImageDrawable(app.icon)
+                layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+            })
+            val col = LinearLayout(this@SettingsActivity).apply {
+                orientation = LinearLayout.VERTICAL
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(14) }
+            }
+            col.addView(TextView(this@SettingsActivity).apply {
+                text = app.label
+                textSize = 15f
+            })
+            app.gameId?.let { gid ->
+                col.addView(TextView(this@SettingsActivity).apply {
+                    text = "Dikenali sebagai ${BracketStore.games[gid]?.first ?: gid}"
+                    textSize = 11f
+                    alpha = 0.7f
+                })
+            }
+            row.addView(col)
+            return row
+        }
     }
 
     // ───────────────────────── Bagian: Update & Tentang ─────────────────────────
 
     private fun buildUpdate() {
-        val c = card("UPDATE APLIKASI")
+        val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}")
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
         col.addView(tv("Versi ${updater.versionName()}  (build ${updater.currentBuild()})", 15f, R.color.text, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) })
-        tvUpdateStatus = tv("Ketuk tombol untuk mengecek versi terbaru", 10f, R.color.muted, false)
+        tvUpdateStatus = tv("Ketuk tombol untuk mengecek versi terbaru", 11f, R.color.muted, false)
         col.addView(tvUpdateStatus)
         row.addView(col)
         row.addView(TextView(this).apply {
@@ -427,7 +643,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun buildAbout() {
-        val c = card("TENTANG", plain = true)
+        val c = card("TENTANG", plain = true, open = true)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
         row.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_logo)
@@ -435,7 +651,7 @@ class SettingsActivity : BaseActivity() {
         })
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) } }
         col.addView(tv("Bracket Live", 14f, R.color.text, true))
-        col.addView(tv("Bracket turnamen untuk live streaming", 10f, R.color.muted, false))
+        col.addView(tv("Bracket turnamen untuk live streaming", 11f, R.color.muted, false))
         row.addView(col)
         c.addView(row)
     }
@@ -478,16 +694,61 @@ class SettingsActivity : BaseActivity() {
 
     // ───────────────────────── Pembangun UI ─────────────────────────
 
-    private fun card(title: String, neon: Boolean = false, plain: Boolean = false): LinearLayout {
-        val c = LinearLayout(this).apply {
+    /** Kartu yang bisa dilipat: ketuk judul untuk membuka/menutup. Mengembalikan wadah isi. */
+    private fun card(title: String, neon: Boolean = false, plain: Boolean = false, summary: String? = null, open: Boolean = false): LinearLayout {
+        val outer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(16), dp(16), dp(16))
             setBackgroundResource(if (neon) R.drawable.bg_card_neon else R.drawable.bg_card)
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14) }
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) }
         }
-        c.addView(TextView(this, null, 0, R.style.SectionLabel).apply { text = title })
-        box.addView(c)
-        return c
+        val head = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(14), dp(12), dp(14))
+        }
+        val titles = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        }
+        titles.addView(TextView(this, null, 0, R.style.SectionLabel).apply { text = title })
+        lastSummary = null
+        if (summary != null) {
+            val s = tv(summary, 11f, R.color.muted, false).apply {
+                setPadding(0, dp(4), 0, 0)
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+            }
+            titles.addView(s)
+            lastSummary = s
+        }
+        val arrow = tv(if (open) "▴" else "▾", 16f, R.color.muted_light, true).apply { setPadding(dp(8), 0, dp(4), 0) }
+        head.addView(titles)
+        head.addView(arrow)
+        val body = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), 0, dp(16), dp(16))
+            visibility = if (open) View.VISIBLE else View.GONE
+        }
+        head.setOnClickListener {
+            val show = body.visibility != View.VISIBLE
+            body.visibility = if (show) View.VISIBLE else View.GONE
+            arrow.text = if (show) "▴" else "▾"
+        }
+        outer.addView(head)
+        outer.addView(body)
+        box.addView(outer)
+        return body
+    }
+
+    /** Tombol aksi seragam: utama (berwarna) atau abu-abu. Ukuran diatur pemanggil. */
+    private fun actionBtn(text: String, primary: Boolean, onClick: () -> Unit): TextView = TextView(this).apply {
+        this.text = text
+        gravity = Gravity.CENTER
+        textSize = 13f
+        setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
+        setTextColor(if (primary) Color.WHITE else ContextCompat.getColor(this@SettingsActivity, R.color.muted_light))
+        setBackgroundResource(if (primary) R.drawable.bg_btn_primary else R.drawable.bg_btn_gray)
+        setOnClickListener { onClick() }
     }
 
     private fun tv(text: String, sp: Float, colorRes: Int, bold: Boolean) = TextView(this).apply {
@@ -505,7 +766,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun hint(parent: LinearLayout, text: String) {
-        parent.addView(tv(text, 10f, R.color.muted, false).apply { setPadding(0, dp(6), 0, 0) })
+        parent.addView(tv(text, 11f, R.color.muted, false).apply { setPadding(0, dp(6), 0, 0) })
     }
 
     private fun divider(parent: LinearLayout) {
@@ -532,7 +793,7 @@ class SettingsActivity : BaseActivity() {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(12), 0, 0) }
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
         col.addView(tv(title, 14f, R.color.text, true))
-        col.addView(tv(sub, 10f, R.color.muted, false))
+        col.addView(tv(sub, 11f, R.color.muted, false))
         val sw = SwitchCompat(this).apply {
             minimumHeight = dp(44)
             thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)

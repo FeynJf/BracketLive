@@ -27,10 +27,10 @@
         <item name="android:layout_width">wrap_content</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:textColor">@color/muted_light</item>
-        <item name="android:textSize">10sp</item>
+        <item name="android:textSize">11sp</item>
         <item name="android:textStyle">bold</item>
         <item name="android:fontFamily">sans-serif-condensed</item>
-        <item name="android:letterSpacing">0.18</item>
+        <item name="android:letterSpacing">0.16</item>
         <item name="android:drawableStart">@drawable/bg_label_bar</item>
         <item name="android:drawablePadding">8dp</item>
     </style>

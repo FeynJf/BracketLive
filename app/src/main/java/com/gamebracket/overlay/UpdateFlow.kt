@@ -30,13 +30,21 @@ class UpdateFlow(
     fun check(manual: Boolean) {
         if (manual) onStatus("Mengecek update…")
         Thread {
-            val info = try { UpdateChecker.fetchLatest() } catch (e: Exception) { null }
+            val res = try {
+                UpdateChecker.fetchLatest()
+            } catch (e: Exception) {
+                UpdateChecker.Check(null, UpdateChecker.explain(e))
+            }
             act.runOnUiThread {
                 if (act.isFinishing || act.isDestroyed) return@runOnUiThread
                 val cur = currentBuild()
+                val info = res.info
                 when {
-                    info == null -> if (manual) onStatus("Belum ada update / gagal terhubung ke GitHub")
-                    info.build > cur -> showDialog(info, cur)
+                    info == null -> if (manual) onStatus(res.error ?: "Gagal mengecek update")
+                    info.build > cur -> {
+                        if (manual) onStatus("Update tersedia: build ${info.build}")
+                        showDialog(info, cur)
+                    }
                     else -> if (manual) onStatus("Sudah versi terbaru (build $cur)")
                 }
             }
@@ -57,7 +65,8 @@ class UpdateFlow(
 
     private fun showDialog(info: UpdateChecker.Info, cur: Int) {
         val notes = info.notes.trim().take(400)
-        val msg = "Versi baru tersedia: build ${info.build} (kamu: build $cur)." +
+        val mb = if (info.size > 0) " · %.1f MB".format(info.size / 1048576.0) else ""
+        val msg = "Versi baru tersedia: build ${info.build}$mb (kamu: build $cur)." +
             if (notes.isNotEmpty()) "\n\n$notes" else ""
         AlertDialog.Builder(act)
             .setTitle("Update tersedia")
@@ -94,7 +103,13 @@ class UpdateFlow(
                 }
                 act.runOnUiThread {
                     dlg.dismiss()
-                    install(f)
+                    val problem = UpdateChecker.verify(act, f, currentBuild())
+                    if (problem != null) {
+                        onStatus(problem)
+                        Toast.makeText(act, problem, Toast.LENGTH_LONG).show()
+                    } else {
+                        install(f)
+                    }
                 }
             } catch (e: Exception) {
                 act.runOnUiThread {

@@ -69,4 +69,11 @@ object Prefs {
     fun setFeedInterval(ctx: Context, v: Int) = putInt(ctx, "feed_interval", v.coerceIn(5, 60))
     fun feedEnabled(ctx: Context) = bool(ctx, "feed_enabled", false)
     fun setFeedEnabled(ctx: Context, v: Boolean) = putBool(ctx, "feed_enabled", v)
+
+    /** Game di perangkat yang dipilih untuk Koneksi Live (nama paket + nama tampil). */
+    fun liveGamePkg(ctx: Context) = str(ctx, "live_game_pkg", "")
+    fun liveGameName(ctx: Context) = str(ctx, "live_game_name", "")
+    fun setLiveGame(ctx: Context, pkg: String, name: String) {
+        sp(ctx).edit().putString("live_game_pkg", pkg).putString("live_game_name", name).apply()
+    }
 }

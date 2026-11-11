@@ -205,6 +205,8 @@ class OverlayService : Service() {
         // Ikon B hanya muncul saat pengguna berada di luar aplikasi
         OverlayService.onSettingsChanged = { applyLook() }
         LiveFeed.setListener("overlay") { changed -> if (changed && expanded && root?.findFocus() !is EditText) render() }
+        // proses bisa dimulai ulang oleh sistem tanpa membuka app → sambungkan lagi koneksi live
+        if (Prefs.feedEnabled(this) && !LiveFeed.running) LiveFeed.start(this)
         AppVisibility.listener = { fg -> applyForeground(fg) }
         applyForeground(AppVisibility.inForeground)
     }

@@ -22,6 +22,11 @@ Aplikasi bracket turnamen untuk live streaming — **Kotlin + XML**, tanpa HTML/
 - **Turnamen:** format bracket (Eliminasi penuh / Langsung Semifinal), poin per kill, poin per posisi
 - **Koneksi Live:** baca feed JSON custom room secara real-time
 
+## Yang baru di v1.6
+- **Update dari aplikasi** diperbaiki: pengecekan membaca daftar rilis GitHub, pesan error jelas (tidak ada internet, belum ada rilis, batas GitHub), dan APK divalidasi sebelum dipasang
+- **Pengaturan lebih rapi:** tiap bagian berupa kartu yang bisa dilipat, teks kecil diperbesar, tombol seragam
+- **Koneksi Live tanpa link:** pilih game yang terpasang di HP → otomatis terhubung, mendeteksi kapan game dibuka. URL feed jadi opsional (bagian "Sumber data otomatis")
+
 ## Mode 8 anggota
 Setiap game punya mode **CRF System (8 Anggota)** (sistem poin) dan **Eliminasi (8 Anggota)** (bracket).
 Roster 8 anggota diisi lewat tombol 👥 di baris tim (mode poin) atau tahan logo tim (mode bracket).

@@ -11,7 +11,12 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Koneksi live ke sumber data custom room.
+ * Koneksi live.
+ *
+ * Mode utama (v1.6): pilih game yang terpasang di perangkat → Bracket Live terhubung dan memantau
+ * apakah game itu sedang dibuka ([GameWatcher]). Tidak perlu URL.
+ *
+ * Mode lanjutan (opsional): kalau URL feed diisi, data tim/poin juga dibaca otomatis dari feed.
  *
  * Game mobile tidak menyediakan API resmi untuk membaca room dari luar, jadi Bracket Live membaca
  * "feed" JSON (HTTPS) yang kamu isi dari tool/bot/spreadsheet milik panitia. Tiap [interval] detik feed
@@ -28,6 +33,11 @@ object LiveFeed {
         private set
     @Volatile var status = "Belum terhubung"
         private set
+
+    /** Naik tiap start() supaya polling lama yang masih berjalan tidak ikut menjadwalkan ulang. */
+    @Volatile private var gen = 0
+    private var deviceLine: String? = null
+    private var feedLine: String? = null
 
     private val handler = Handler(Looper.getMainLooper())
     private val listeners = LinkedHashMap<String, (Boolean) -> Unit>()
@@ -52,18 +62,35 @@ object LiveFeed {
         appCtx = ctx.applicationContext
         if (running) return
         running = true
+        gen++
         autoFilled = false
         matchPoints.clear()
+        deviceLine = null
+        feedLine = null
+        GameWatcher.reset()
         status = "Menghubungkan…"
         fireListeners(false)
-        schedule(0)
+        schedule(0, gen)
     }
 
     fun stop() {
         running = false
+        gen++
         handler.removeCallbacksAndMessages(null)
         status = "Terputus"
         fireListeners(false)
+    }
+
+    private fun refreshStatus() {
+        val parts = listOfNotNull(deviceLine, feedLine)
+        status = if (parts.isEmpty()) "Terhubung" else "Terhubung · " + parts.joinToString(" · ")
+    }
+
+    /** Status game terpilih: sedang berjalan / menunggu dibuka / perlu izin akses penggunaan. */
+    private fun gameStatusLine(ctx: Context, pkg: String): String {
+        val name = Prefs.liveGameName(ctx).ifEmpty { pkg }
+        if (!GameWatcher.hasAccess(ctx)) return "$name terpilih · aktifkan Akses penggunaan untuk mendeteksi game"
+        return if (GameWatcher.foreground(ctx) == pkg) "$name sedang berjalan" else "Menunggu $name dibuka"
     }
 
     /** Baca sekali (tombol "Tes koneksi"). Hasil lewat [onResult] di main thread. */
@@ -80,27 +107,46 @@ object LiveFeed {
         }.start()
     }
 
-    private fun schedule(delayMs: Long) {
-        handler.postDelayed({ if (running) pollOnce() }, delayMs)
+    private fun schedule(delayMs: Long, g: Int) {
+        handler.postDelayed({ if (running && g == gen) pollOnce(g) }, delayMs)
     }
 
-    private fun pollOnce() {
+    private fun pollOnce(g: Int) {
         val ctx = appCtx ?: return
         val url = Prefs.feedUrl(ctx).trim()
-        val interval = Prefs.feedInterval(ctx) * 1000L
+        val pkg = Prefs.liveGamePkg(ctx)
+        // tanpa URL feed hanya memantau game → cukup cek tiap 3 detik
+        val interval = (if (url.isEmpty()) 3 else Prefs.feedInterval(ctx)) * 1000L
         Thread {
-            try {
-                val (match, teams) = fetch(url)
-                handler.post { if (running) apply(ctx, match, teams) }
-            } catch (e: Exception) {
-                handler.post {
-                    if (running) {
-                        status = "Gagal membaca feed: ${e.message}"
-                        fireListeners(false)
-                    }
+            val gameLine = if (pkg.isNotEmpty()) gameStatusLine(ctx, pkg) else null
+            var result: Pair<Int, List<FeedTeam>>? = null
+            var error: String? = null
+            if (url.isNotEmpty()) {
+                try {
+                    result = fetch(url)
+                } catch (e: Exception) {
+                    error = e.message ?: e.javaClass.simpleName
                 }
             }
-            handler.post { if (running) schedule(interval) }
+            val res = result
+            val err = error
+            handler.post {
+                if (running && g == gen) {
+                    deviceLine = gameLine
+                    if (url.isEmpty()) {
+                        feedLine = null
+                        refreshStatus()
+                        fireListeners(false)
+                    } else if (res != null) {
+                        apply(ctx, res.first, res.second)
+                    } else {
+                        feedLine = "Feed gagal: $err"
+                        refreshStatus()
+                        fireListeners(false)
+                    }
+                    schedule(interval, g)
+                }
+            }
         }.start()
     }
 
@@ -175,7 +221,8 @@ object LiveFeed {
         }
 
         val time = SimpleDateFormat("HH:mm:ss", Locale("id")).format(Date())
-        status = "Terhubung · match $match · ${teams.size} tim · $time"
+        feedLine = "match $match · ${teams.size} tim · $time"
+        refreshStatus()
         fireListeners(signature() != before)
     }
 }
