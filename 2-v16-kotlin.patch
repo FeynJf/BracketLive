@@ -1,0 +1,984 @@
+diff --git a/app/src/main/java/com/gamebracket/overlay/GameWatcher.kt b/app/src/main/java/com/gamebracket/overlay/GameWatcher.kt
+new file mode 100644
+index 0000000..fa76dbb
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/GameWatcher.kt
+@@ -0,0 +1,61 @@
++package com.gamebracket.overlay
++
++import android.app.AppOpsManager
++import android.app.usage.UsageEvents
++import android.app.usage.UsageStatsManager
++import android.content.Context
++import android.os.Build
++import android.os.Process
++
++/**
++ * Mendeteksi aplikasi yang sedang tampil di layar lewat "Akses penggunaan" (UsageStats).
++ * Dipakai untuk tahu kapan game yang dipilih sedang dibuka.
++ */
++object GameWatcher {
++
++    private var fg: String? = null
++    private var lastEnd = 0L
++
++    @Suppress("DEPRECATION")
++    fun hasAccess(ctx: Context): Boolean {
++        return try {
++            val ops = ctx.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
++            val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
++                ops.unsafeCheckOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), ctx.packageName)
++            } else {
++                ops.checkOpNoThrow(AppOpsManager.OPSTR_GET_USAGE_STATS, Process.myUid(), ctx.packageName)
++            }
++            mode == AppOpsManager.MODE_ALLOWED
++        } catch (e: Exception) {
++            false
++        }
++    }
++
++    @Synchronized
++    fun reset() {
++        fg = null
++        lastEnd = 0L
++    }
++
++    /** Nama paket yang sedang di layar, null kalau tidak diketahui. Panggil dari thread background. */
++    @Synchronized
++    @Suppress("DEPRECATION")
++    fun foreground(ctx: Context): String? {
++        val usm = ctx.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager ?: return fg
++        val now = System.currentTimeMillis()
++        val begin = if (lastEnd == 0L) now - 2 * 60 * 60 * 1000L else lastEnd - 1000L
++        val events = try { usm.queryEvents(begin, now) } catch (e: Exception) { null } ?: return fg
++        val ev = UsageEvents.Event()
++        var cur = fg
++        while (events.hasNextEvent()) {
++            events.getNextEvent(ev)
++            when (ev.eventType) {
++                UsageEvents.Event.MOVE_TO_FOREGROUND -> cur = ev.packageName
++                UsageEvents.Event.MOVE_TO_BACKGROUND -> if (ev.packageName == cur) cur = null
++            }
++        }
++        lastEnd = now
++        fg = cur
++        return cur
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/InstalledGames.kt b/app/src/main/java/com/gamebracket/overlay/InstalledGames.kt
+new file mode 100644
+index 0000000..b8b5e7d
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/InstalledGames.kt
+@@ -0,0 +1,63 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.content.Intent
++import android.content.pm.ApplicationInfo
++import android.graphics.drawable.Drawable
++import android.os.Build
++
++/** Daftar game yang terpasang di perangkat (dipakai untuk fitur Koneksi Live). */
++object InstalledGames {
++
++    class App(val pkg: String, val label: String, val icon: Drawable?, val gameId: String?, val isGame: Boolean)
++
++    /** Nama paket game populer → id game di [BracketStore.games]. */
++    private val known = mapOf(
++        "com.dts.freefireth" to "freefire",
++        "com.dts.freefiremax" to "freefire",
++        "com.tencent.ig" to "pubg",
++        "com.pubg.imobile" to "pubg",
++        "com.pubg.krmobile" to "pubg",
++        "com.vng.pubgmobile" to "pubg",
++        "com.rekoo.pubgm" to "pubg",
++        "com.mobile.legends" to "mlbb",
++        "com.activision.callofduty.shooter" to "codm",
++        "com.garena.game.codm" to "codm",
++        "com.tencent.tmgp.cod" to "codm"
++    )
++
++    fun gameIdFor(pkg: String): String? = known[pkg]
++
++    /**
++     * Blocking — panggil dari thread background.
++     * [includeAll] = false → hanya game; true → semua aplikasi yang punya ikon peluncur.
++     */
++    @Suppress("DEPRECATION")
++    fun load(ctx: Context, includeAll: Boolean): List<App> {
++        val pm = ctx.packageManager
++        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
++        val resolved = try { pm.queryIntentActivities(intent, 0) } catch (e: Exception) { emptyList() }
++        val seen = HashSet<String>()
++        val out = ArrayList<App>()
++        for (ri in resolved) {
++            val ai = ri.activityInfo?.applicationInfo ?: continue
++            val pkg = ai.packageName ?: continue
++            if (pkg == ctx.packageName || !seen.add(pkg)) continue
++            val game = isGame(ai)
++            if (!game && !includeAll) continue
++            val label = try { ri.loadLabel(pm).toString() } catch (e: Exception) { pkg }
++            val icon = try { ri.loadIcon(pm) } catch (e: Exception) { null }
++            out.add(App(pkg, label, icon, known[pkg], game))
++        }
++        return out.sortedWith(
++            compareBy<App>({ it.gameId == null }, { !it.isGame }, { it.label.lowercase() })
++        )
++    }
++
++    @Suppress("DEPRECATION")
++    private fun isGame(ai: ApplicationInfo): Boolean {
++        if (known.containsKey(ai.packageName)) return true
++        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && ai.category == ApplicationInfo.CATEGORY_GAME) return true
++        return (ai.flags and ApplicationInfo.FLAG_IS_GAME) != 0
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/LiveFeed.kt b/app/src/main/java/com/gamebracket/overlay/LiveFeed.kt
+index 12e11b8..e7d2b6e 100644
+--- a/app/src/main/java/com/gamebracket/overlay/LiveFeed.kt
++++ b/app/src/main/java/com/gamebracket/overlay/LiveFeed.kt
+@@ -11,7 +11,12 @@ import java.util.Date
+ import java.util.Locale
+ 
+ /**
+- * Koneksi live ke sumber data custom room.
++ * Koneksi live.
++ *
++ * Mode utama (v1.6): pilih game yang terpasang di perangkat → Bracket Live terhubung dan memantau
++ * apakah game itu sedang dibuka ([GameWatcher]). Tidak perlu URL.
++ *
++ * Mode lanjutan (opsional): kalau URL feed diisi, data tim/poin juga dibaca otomatis dari feed.
+  *
+  * Game mobile tidak menyediakan API resmi untuk membaca room dari luar, jadi Bracket Live membaca
+  * "feed" JSON (HTTPS) yang kamu isi dari tool/bot/spreadsheet milik panitia. Tiap [interval] detik feed
+@@ -29,6 +34,11 @@ object LiveFeed {
+     @Volatile var status = "Belum terhubung"
+         private set
+ 
++    /** Naik tiap start() supaya polling lama yang masih berjalan tidak ikut menjadwalkan ulang. */
++    @Volatile private var gen = 0
++    private var deviceLine: String? = null
++    private var feedLine: String? = null
++
+     private val handler = Handler(Looper.getMainLooper())
+     private val listeners = LinkedHashMap<String, (Boolean) -> Unit>()
+     private var appCtx: Context? = null
+@@ -52,20 +62,37 @@ object LiveFeed {
+         appCtx = ctx.applicationContext
+         if (running) return
+         running = true
++        gen++
+         autoFilled = false
+         matchPoints.clear()
++        deviceLine = null
++        feedLine = null
++        GameWatcher.reset()
+         status = "Menghubungkan…"
+         fireListeners(false)
+-        schedule(0)
++        schedule(0, gen)
+     }
+ 
+     fun stop() {
+         running = false
++        gen++
+         handler.removeCallbacksAndMessages(null)
+         status = "Terputus"
+         fireListeners(false)
+     }
+ 
++    private fun refreshStatus() {
++        val parts = listOfNotNull(deviceLine, feedLine)
++        status = if (parts.isEmpty()) "Terhubung" else "Terhubung · " + parts.joinToString(" · ")
++    }
++
++    /** Status game terpilih: sedang berjalan / menunggu dibuka / perlu izin akses penggunaan. */
++    private fun gameStatusLine(ctx: Context, pkg: String): String {
++        val name = Prefs.liveGameName(ctx).ifEmpty { pkg }
++        if (!GameWatcher.hasAccess(ctx)) return "$name terpilih · aktifkan Akses penggunaan untuk mendeteksi game"
++        return if (GameWatcher.foreground(ctx) == pkg) "$name sedang berjalan" else "Menunggu $name dibuka"
++    }
++
+     /** Baca sekali (tombol "Tes koneksi"). Hasil lewat [onResult] di main thread. */
+     fun test(ctx: Context, onResult: (String) -> Unit) {
+         val url = Prefs.feedUrl(ctx).trim()
+@@ -80,27 +107,46 @@ object LiveFeed {
+         }.start()
+     }
+ 
+-    private fun schedule(delayMs: Long) {
+-        handler.postDelayed({ if (running) pollOnce() }, delayMs)
++    private fun schedule(delayMs: Long, g: Int) {
++        handler.postDelayed({ if (running && g == gen) pollOnce(g) }, delayMs)
+     }
+ 
+-    private fun pollOnce() {
++    private fun pollOnce(g: Int) {
+         val ctx = appCtx ?: return
+         val url = Prefs.feedUrl(ctx).trim()
+-        val interval = Prefs.feedInterval(ctx) * 1000L
++        val pkg = Prefs.liveGamePkg(ctx)
++        // tanpa URL feed hanya memantau game → cukup cek tiap 3 detik
++        val interval = (if (url.isEmpty()) 3 else Prefs.feedInterval(ctx)) * 1000L
+         Thread {
+-            try {
+-                val (match, teams) = fetch(url)
+-                handler.post { if (running) apply(ctx, match, teams) }
+-            } catch (e: Exception) {
+-                handler.post {
+-                    if (running) {
+-                        status = "Gagal membaca feed: ${e.message}"
++            val gameLine = if (pkg.isNotEmpty()) gameStatusLine(ctx, pkg) else null
++            var result: Pair<Int, List<FeedTeam>>? = null
++            var error: String? = null
++            if (url.isNotEmpty()) {
++                try {
++                    result = fetch(url)
++                } catch (e: Exception) {
++                    error = e.message ?: e.javaClass.simpleName
++                }
++            }
++            val res = result
++            val err = error
++            handler.post {
++                if (running && g == gen) {
++                    deviceLine = gameLine
++                    if (url.isEmpty()) {
++                        feedLine = null
++                        refreshStatus()
++                        fireListeners(false)
++                    } else if (res != null) {
++                        apply(ctx, res.first, res.second)
++                    } else {
++                        feedLine = "Feed gagal: $err"
++                        refreshStatus()
+                         fireListeners(false)
+                     }
++                    schedule(interval, g)
+                 }
+             }
+-            handler.post { if (running) schedule(interval) }
+         }.start()
+     }
+ 
+@@ -175,7 +221,8 @@ object LiveFeed {
+         }
+ 
+         val time = SimpleDateFormat("HH:mm:ss", Locale("id")).format(Date())
+-        status = "Terhubung · match $match · ${teams.size} tim · $time"
++        feedLine = "match $match · ${teams.size} tim · $time"
++        refreshStatus()
+         fireListeners(signature() != before)
+     }
+ }
+diff --git a/app/src/main/java/com/gamebracket/overlay/OverlayService.kt b/app/src/main/java/com/gamebracket/overlay/OverlayService.kt
+index 1628f76..f94f0b8 100644
+--- a/app/src/main/java/com/gamebracket/overlay/OverlayService.kt
++++ b/app/src/main/java/com/gamebracket/overlay/OverlayService.kt
+@@ -205,6 +205,8 @@ class OverlayService : Service() {
+         // Ikon B hanya muncul saat pengguna berada di luar aplikasi
+         OverlayService.onSettingsChanged = { applyLook() }
+         LiveFeed.setListener("overlay") { changed -> if (changed && expanded && root?.findFocus() !is EditText) render() }
++        // proses bisa dimulai ulang oleh sistem tanpa membuka app → sambungkan lagi koneksi live
++        if (Prefs.feedEnabled(this) && !LiveFeed.running) LiveFeed.start(this)
+         AppVisibility.listener = { fg -> applyForeground(fg) }
+         applyForeground(AppVisibility.inForeground)
+     }
+diff --git a/app/src/main/java/com/gamebracket/overlay/Prefs.kt b/app/src/main/java/com/gamebracket/overlay/Prefs.kt
+index 28a1bf2..60e42d0 100644
+--- a/app/src/main/java/com/gamebracket/overlay/Prefs.kt
++++ b/app/src/main/java/com/gamebracket/overlay/Prefs.kt
+@@ -69,4 +69,11 @@ object Prefs {
+     fun setFeedInterval(ctx: Context, v: Int) = putInt(ctx, "feed_interval", v.coerceIn(5, 60))
+     fun feedEnabled(ctx: Context) = bool(ctx, "feed_enabled", false)
+     fun setFeedEnabled(ctx: Context, v: Boolean) = putBool(ctx, "feed_enabled", v)
++
++    /** Game di perangkat yang dipilih untuk Koneksi Live (nama paket + nama tampil). */
++    fun liveGamePkg(ctx: Context) = str(ctx, "live_game_pkg", "")
++    fun liveGameName(ctx: Context) = str(ctx, "live_game_name", "")
++    fun setLiveGame(ctx: Context, pkg: String, name: String) {
++        sp(ctx).edit().putString("live_game_pkg", pkg).putString("live_game_name", name).apply()
++    }
+ }
+diff --git a/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+index 8596fde..a33a1e1 100644
+--- a/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
++++ b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+@@ -3,6 +3,7 @@ package com.gamebracket.overlay
+ import android.content.Context
+ import android.content.Intent
+ import android.content.res.ColorStateList
++import android.graphics.Color
+ import android.graphics.Typeface
+ import android.net.Uri
+ import android.os.Build
+@@ -14,11 +15,13 @@ import android.text.TextWatcher
+ import android.view.Gravity
+ import android.view.View
+ import android.view.ViewGroup
++import android.widget.BaseAdapter
+ import android.widget.EditText
+ import android.widget.FrameLayout
+ import android.widget.HorizontalScrollView
+ import android.widget.ImageView
+ import android.widget.LinearLayout
++import android.widget.ListView
+ import android.widget.SeekBar
+ import android.widget.TextView
+ import android.widget.Toast
+@@ -36,6 +39,13 @@ class SettingsActivity : BaseActivity() {
+ 
+     private var tvUpdateStatus: TextView? = null
+     private var tvFeedStatus: TextView? = null
++    private var tvLiveSummary: TextView? = null
++    private var tvGameName: TextView? = null
++    private var ivLiveGame: ImageView? = null
++    private var btnConnect: TextView? = null
++    private var btnUsage: TextView? = null
++    private var tvUsageHint: TextView? = null
++    private var lastSummary: TextView? = null
+     private var tvOverlayState: TextView? = null
+     private var dotOverlay: View? = null
+     private var switchOverlay: SwitchCompat? = null
+@@ -76,7 +86,7 @@ class SettingsActivity : BaseActivity() {
+     override fun onStart() {
+         super.onStart()
+         OverlayService.stateListener = { on -> runOnUiThread { setOverlaySwitch(on) } }
+-        LiveFeed.setListener("settings") { _ -> runOnUiThread { tvFeedStatus?.text = LiveFeed.status } }
++        LiveFeed.setListener("settings") { _ -> runOnUiThread { refreshLiveUi() } }
+     }
+ 
+     override fun onStop() {
+@@ -94,12 +104,13 @@ class SettingsActivity : BaseActivity() {
+             setOverlaySwitch(OverlayService.isRunning)
+         }
+         updater.onResume()
++        refreshLiveUi() // izin "Akses penggunaan" mungkin baru diberikan
+     }
+ 
+     // ───────────────────────── Bagian: Tampilan ─────────────────────────
+ 
+     private fun buildAppearance() {
+-        val c = card("TAMPILAN", neon = true)
++        val c = card("TAMPILAN", neon = true, summary = "Tema, warna aksen, animasi")
+ 
+         label(c, "TEMA UI")
+         chips(c, ThemeManager.baseNames, Prefs.themeBase(this)) { i ->
+@@ -138,7 +149,7 @@ class SettingsActivity : BaseActivity() {
+     // ───────────────────────── Bagian: Overlay ─────────────────────────
+ 
+     private fun buildOverlay() {
+-        val c = card("OVERLAY LIVE")
++        val c = card("OVERLAY LIVE", summary = "Ikon melayang, ukuran, tahan untuk membuka", open = true)
+ 
+         // toggle
+         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
+@@ -146,7 +157,7 @@ class SettingsActivity : BaseActivity() {
+         val texts = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(10) } }
+         tvOverlayState = tv("Overlay Nonaktif", 16f, R.color.muted, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) }
+         texts.addView(tvOverlayState)
+-        texts.addView(tv("Ikon melayang setelah kamu keluar dari app", 10f, R.color.muted, false))
++        texts.addView(tv("Ikon melayang setelah kamu keluar dari app", 11f, R.color.muted, false))
+         switchOverlay = SwitchCompat(this).apply {
+             minimumHeight = dp(44)
+             thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)
+@@ -197,7 +208,7 @@ class SettingsActivity : BaseActivity() {
+     }
+ 
+     private fun buildPanel() {
+-        val c = card("DESAIN & UKURAN PANEL", neon = true)
++        val c = card("DESAIN & UKURAN PANEL", neon = true, summary = "Desain, transparansi, lebar, tinggi, zoom")
+         hint(c, "Panel adalah jendela bracket yang terbuka saat ikon ditahan. Ukurannya juga bisa diubah langsung dengan menggeser pojok kiri/kanan bawah panel.")
+ 
+         label(c, "PRATINJAU PANEL")
+@@ -269,7 +280,7 @@ class SettingsActivity : BaseActivity() {
+         val custom = Prefs.bubbleCustom(this)
+         val ui = ThemeManager.themedContext(this)
+ 
+-        h.addView(tv("Desain tombol", 10f, R.color.muted, false).apply { setPadding(0, dp(8), 0, dp(4)) })
++        h.addView(tv("Desain tombol", 11f, R.color.muted, false).apply { setPadding(0, dp(8), 0, dp(4)) })
+         val styleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+         BubbleFactory.styleNames.forEachIndexed { i, name ->
+             val img = ImageView(this).apply {
+@@ -283,7 +294,7 @@ class SettingsActivity : BaseActivity() {
+         }
+         h.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(styleRow) })
+ 
+-        h.addView(tv("Gambar ikon", 10f, R.color.muted, false).apply { setPadding(0, dp(10), 0, dp(4)) })
++        h.addView(tv("Gambar ikon", 11f, R.color.muted, false).apply { setPadding(0, dp(10), 0, dp(4)) })
+         val iconRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+         BubbleFactory.iconNames.forEachIndexed { i, name ->
+             val cell = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER) }
+@@ -350,7 +361,7 @@ class SettingsActivity : BaseActivity() {
+     // ───────────────────────── Bagian: Turnamen ─────────────────────────
+ 
+     private fun buildTournament() {
+-        val c = card("TURNAMEN")
++        val c = card("TURNAMEN", summary = "Format bracket, poin kill & posisi")
+ 
+         label(c, "FORMAT BRACKET")
+         chips(c, listOf("Eliminasi penuh", "Langsung Semifinal"), if (Prefs.semifinalOnly(this)) 1 else 0) { i ->
+@@ -373,43 +384,248 @@ class SettingsActivity : BaseActivity() {
+     // ───────────────────────── Bagian: Koneksi Live ─────────────────────────
+ 
+     private fun buildLive() {
+-        val c = card("KONEKSI LIVE (CUSTOM ROOM)")
+-        hint(c, "Game mobile tidak punya API resmi untuk membaca room dari luar. Bracket Live membaca feed JSON (HTTPS) dari tool/bot/spreadsheet panitia: tim terdeteksi otomatis dan poin dihitung otomatis.")
++        val c = card("KONEKSI LIVE", summary = LiveFeed.status)
++        tvLiveSummary = lastSummary
++        hint(c, "Pilih game yang terpasang di HP kamu lalu hubungkan. Bracket Live mendeteksi kapan game dibuka, dan overlay langsung tampil di atas game. Tidak perlu memasukkan link.")
++
++        // kartu game terpilih
++        val row = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++            setPadding(dp(12), dp(12), dp(12), dp(12))
++            setBackgroundResource(R.drawable.bg_match)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
++        }
++        ivLiveGame = ImageView(this).apply { layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)) }
++        val col = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) }
++        }
++        tvGameName = tv("", 14f, R.color.text, true)
++        tvFeedStatus = tv("", 11f, R.color.muted, false).apply { setPadding(0, dp(2), 0, 0) }
++        col.addView(tvGameName)
++        col.addView(tvFeedStatus)
++        row.addView(ivLiveGame)
++        row.addView(col)
++        c.addView(row)
++
++        c.addView(actionBtn("Pilih game di perangkat", false) { pickGame(false) }.apply {
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(46)).apply { topMargin = dp(10) }
++        })
++
++        val btns = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
++        }
++        btnConnect = actionBtn("Hubungkan", true) { toggleConnect() }.apply {
++            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginEnd = dp(8) }
++        }
++        btns.addView(btnConnect)
++        btns.addView(actionBtn("Buka game", false) { openGame() }.apply {
++            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f)
++        })
++        c.addView(btns)
++
++        // izin Akses penggunaan (supaya app tahu game sedang dibuka)
++        tvUsageHint = tv("Aktifkan \"Akses penggunaan\" untuk Bracket Live supaya bisa tahu kapan game dibuka.", 11f, R.color.muted, false).apply { setPadding(0, dp(12), 0, 0) }
++        c.addView(tvUsageHint)
++        btnUsage = actionBtn("Beri akses penggunaan", false) { openUsageSettings() }.apply {
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(42)).apply { topMargin = dp(6) }
++        }
++        c.addView(btnUsage)
+ 
+-        label(c, "URL FEED (https://…)")
+-        field(c, Prefs.feedUrl(this), "https://contoh.com/room.json", InputType.TYPE_TEXT_VARIATION_URI) {
++        // sumber data otomatis (opsional, disembunyikan)
++        divider(c)
++        val hasFeed = Prefs.feedUrl(this).isNotBlank()
++        val adv = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            visibility = if (hasFeed) View.VISIBLE else View.GONE
++        }
++        val advHead = tv(if (hasFeed) "SUMBER DATA OTOMATIS (OPSIONAL)  ▴" else "SUMBER DATA OTOMATIS (OPSIONAL)  ▾", 11f, R.color.muted_light, true).apply {
++            setPadding(0, dp(14), 0, dp(6))
++            setOnClickListener {
++                val show = adv.visibility != View.VISIBLE
++                adv.visibility = if (show) View.VISIBLE else View.GONE
++                text = if (show) "SUMBER DATA OTOMATIS (OPSIONAL)  ▴" else "SUMBER DATA OTOMATIS (OPSIONAL)  ▾"
++            }
++        }
++        c.addView(advHead)
++        c.addView(adv)
++        hint(adv, "Game mobile tidak menyediakan data room untuk aplikasi lain, jadi skor tidak bisa dibaca langsung dari game. Kalau panitia punya feed JSON (tool/bot/spreadsheet), isi URL-nya agar tim & poin terisi otomatis. Tidak wajib.")
++        label(adv, "URL FEED (https://…)")
++        field(adv, Prefs.feedUrl(this), "https://contoh.com/room.json", InputType.TYPE_TEXT_VARIATION_URI) {
+             Prefs.setFeedUrl(this, it.trim())
+         }
+-        slider(c, "CEK ULANG TIAP", 5, 60, Prefs.feedInterval(this), { "$it dtk" }) {
++        slider(adv, "CEK ULANG TIAP", 5, 60, Prefs.feedInterval(this), { "$it dtk" }) {
+             Prefs.setFeedInterval(this, it)
+         }
+-        switchRow(c, "Hubungkan", "Pantau room secara real-time", LiveFeed.running) { on ->
+-            Prefs.setFeedEnabled(this, on)
+-            if (on) {
+-                if (Prefs.feedUrl(this).isBlank()) {
+-                    Toast.makeText(this, "Isi URL feed dulu", Toast.LENGTH_SHORT).show()
+-                } else LiveFeed.start(this)
+-            } else LiveFeed.stop()
+-        }
+-        tvFeedStatus = tv(LiveFeed.status, 11f, R.color.text, true)
+-        tvFeedStatus!!.setTextColor(ThemeManager.accent1(this))
+-        tvFeedStatus!!.setPadding(0, dp(6), 0, 0)
+-        c.addView(tvFeedStatus)
+-        button(c, "Tes koneksi") {
++        button(adv, "Tes koneksi feed") {
+             tvFeedStatus?.text = "Menguji…"
+             LiveFeed.test(this) { tvFeedStatus?.text = it }
+         }
+-        hint(c, "Format: {\"match\":1,\"teams\":[{\"name\":\"EVOS\",\"kills\":5,\"placement\":2,\"members\":[\"A\",\"B\"]}]}")
++        hint(adv, "Format: {\"match\":1,\"teams\":[{\"name\":\"EVOS\",\"kills\":5,\"placement\":2,\"members\":[\"A\",\"B\"]}]}")
++
++        refreshLiveUi()
++    }
++
++    private fun refreshLiveUi() {
++        val pkg = Prefs.liveGamePkg(this)
++        val name = Prefs.liveGameName(this)
++        val running = LiveFeed.running
++        tvGameName?.text = if (pkg.isEmpty()) "Belum ada game dipilih" else name
++        tvFeedStatus?.text = when {
++            running -> LiveFeed.status
++            pkg.isEmpty() -> "Ketuk \"Pilih game di perangkat\""
++            else -> "Belum terhubung"
++        }
++        tvFeedStatus?.setTextColor(
++            if (running) ThemeManager.accent1(this) else ContextCompat.getColor(this, R.color.muted)
++        )
++        tvLiveSummary?.text = when {
++            running -> LiveFeed.status
++            pkg.isEmpty() -> "Belum ada game dipilih"
++            else -> "$name · belum terhubung"
++        }
++        btnConnect?.text = if (running) "Putuskan" else "Hubungkan"
++        val icon = if (pkg.isNotEmpty()) {
++            try { packageManager.getApplicationIcon(pkg) } catch (e: Exception) { null }
++        } else null
++        if (icon != null) ivLiveGame?.setImageDrawable(icon) else ivLiveGame?.setImageResource(R.drawable.ic_ov_pad)
++        val needUsage = pkg.isNotEmpty() && !GameWatcher.hasAccess(this)
++        tvUsageHint?.visibility = if (needUsage) View.VISIBLE else View.GONE
++        btnUsage?.visibility = if (needUsage) View.VISIBLE else View.GONE
++    }
++
++    private fun openUsageSettings() {
++        try {
++            startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
++        } catch (e: Exception) {
++            Toast.makeText(this, "Buka Settings → Akses penggunaan → Bracket Live", Toast.LENGTH_LONG).show()
++        }
++    }
++
++    /** Hubungkan / putuskan koneksi live. */
++    private fun toggleConnect() {
++        if (LiveFeed.running) {
++            Prefs.setFeedEnabled(this, false)
++            LiveFeed.stop()
++        } else {
++            if (Prefs.liveGamePkg(this).isEmpty() && Prefs.feedUrl(this).isBlank()) {
++                Toast.makeText(this, "Pilih game dulu", Toast.LENGTH_SHORT).show()
++                pickGame(false)
++                return
++            }
++            Prefs.setFeedEnabled(this, true)
++            LiveFeed.start(this)
++        }
++        refreshLiveUi()
++    }
++
++    private fun openGame() {
++        val pkg = Prefs.liveGamePkg(this)
++        if (pkg.isEmpty()) {
++            Toast.makeText(this, "Pilih game dulu", Toast.LENGTH_SHORT).show()
++            return
++        }
++        val launch = packageManager.getLaunchIntentForPackage(pkg)
++        if (launch == null) {
++            Toast.makeText(this, "Game tidak ditemukan di perangkat", Toast.LENGTH_LONG).show()
++            return
++        }
++        startActivity(launch)
++    }
++
++    /** Dialog daftar game yang terpasang. Kalau tak ada game terdeteksi, langsung tampilkan semua aplikasi. */
++    private fun pickGame(includeAll: Boolean) {
++        Thread {
++            val list = InstalledGames.load(this, includeAll)
++            runOnUiThread {
++                if (isFinishing || isDestroyed) return@runOnUiThread
++                if (list.isEmpty() && !includeAll) {
++                    pickGame(true)
++                    return@runOnUiThread
++                }
++                val lv = ListView(this)
++                lv.adapter = GameAdapter(list)
++                val b = AlertDialog.Builder(this)
++                    .setTitle(if (includeAll) "Semua aplikasi" else "Pilih game")
++                    .setView(lv)
++                    .setNegativeButton("Batal", null)
++                if (!includeAll) b.setNeutralButton("Semua aplikasi") { _, _ -> pickGame(true) }
++                val dlg = b.create()
++                lv.setOnItemClickListener { _, _, pos, _ ->
++                    dlg.dismiss()
++                    onGameChosen(list[pos])
++                }
++                dlg.show()
++            }
++        }.start()
++    }
++
++    private fun onGameChosen(app: InstalledGames.App) {
++        Prefs.setLiveGame(this, app.pkg, app.label)
++        // samakan pilihan game turnamen kalau game ini dikenali dan belum ada mode terpilih
++        app.gameId?.let { id -> if (BracketStore.mode == null) BracketStore.gameId = id }
++        // langsung terhubung
++        Prefs.setFeedEnabled(this, true)
++        LiveFeed.stop()
++        LiveFeed.start(this)
++        refreshLiveUi()
++        if (!GameWatcher.hasAccess(this)) {
++            AlertDialog.Builder(this)
++                .setTitle("Izin Akses penggunaan")
++                .setMessage("Supaya Bracket Live tahu kapan ${app.label} dibuka, aktifkan \"Akses penggunaan\" untuk Bracket Live, lalu kembali ke sini.")
++                .setPositiveButton("Buka Settings") { _, _ -> openUsageSettings() }
++                .setNegativeButton("Nanti", null)
++                .show()
++        } else {
++            Toast.makeText(this, "Terhubung ke ${app.label}", Toast.LENGTH_SHORT).show()
++        }
++    }
++
++    private inner class GameAdapter(private val items: List<InstalledGames.App>) : BaseAdapter() {
++        override fun getCount() = items.size
++        override fun getItem(position: Int) = items[position]
++        override fun getItemId(position: Int) = position.toLong()
++        override fun getView(position: Int, convertView: View?, parent: ViewGroup?): View {
++            val app = items[position]
++            val row = LinearLayout(this@SettingsActivity).apply {
++                orientation = LinearLayout.HORIZONTAL
++                gravity = Gravity.CENTER_VERTICAL
++                setPadding(dp(20), dp(10), dp(20), dp(10))
++            }
++            row.addView(ImageView(this@SettingsActivity).apply {
++                setImageDrawable(app.icon)
++                layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
++            })
++            val col = LinearLayout(this@SettingsActivity).apply {
++                orientation = LinearLayout.VERTICAL
++                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(14) }
++            }
++            col.addView(TextView(this@SettingsActivity).apply {
++                text = app.label
++                textSize = 15f
++            })
++            app.gameId?.let { gid ->
++                col.addView(TextView(this@SettingsActivity).apply {
++                    text = "Dikenali sebagai ${BracketStore.games[gid]?.first ?: gid}"
++                    textSize = 11f
++                    alpha = 0.7f
++                })
++            }
++            row.addView(col)
++            return row
++        }
+     }
+ 
+     // ───────────────────────── Bagian: Update & Tentang ─────────────────────────
+ 
+     private fun buildUpdate() {
+-        val c = card("UPDATE APLIKASI")
++        val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}")
+         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
+         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+         col.addView(tv("Versi ${updater.versionName()}  (build ${updater.currentBuild()})", 15f, R.color.text, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) })
+-        tvUpdateStatus = tv("Ketuk tombol untuk mengecek versi terbaru", 10f, R.color.muted, false)
++        tvUpdateStatus = tv("Ketuk tombol untuk mengecek versi terbaru", 11f, R.color.muted, false)
+         col.addView(tvUpdateStatus)
+         row.addView(col)
+         row.addView(TextView(this).apply {
+@@ -427,7 +643,7 @@ class SettingsActivity : BaseActivity() {
+     }
+ 
+     private fun buildAbout() {
+-        val c = card("TENTANG", plain = true)
++        val c = card("TENTANG", plain = true, open = true)
+         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
+         row.addView(ImageView(this).apply {
+             setImageResource(R.drawable.ic_logo)
+@@ -435,7 +651,7 @@ class SettingsActivity : BaseActivity() {
+         })
+         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) } }
+         col.addView(tv("Bracket Live", 14f, R.color.text, true))
+-        col.addView(tv("Bracket turnamen untuk live streaming", 10f, R.color.muted, false))
++        col.addView(tv("Bracket turnamen untuk live streaming", 11f, R.color.muted, false))
+         row.addView(col)
+         c.addView(row)
+     }
+@@ -478,16 +694,61 @@ class SettingsActivity : BaseActivity() {
+ 
+     // ───────────────────────── Pembangun UI ─────────────────────────
+ 
+-    private fun card(title: String, neon: Boolean = false, plain: Boolean = false): LinearLayout {
+-        val c = LinearLayout(this).apply {
++    /** Kartu yang bisa dilipat: ketuk judul untuk membuka/menutup. Mengembalikan wadah isi. */
++    private fun card(title: String, neon: Boolean = false, plain: Boolean = false, summary: String? = null, open: Boolean = false): LinearLayout {
++        val outer = LinearLayout(this).apply {
+             orientation = LinearLayout.VERTICAL
+-            setPadding(dp(16), dp(16), dp(16), dp(16))
+             setBackgroundResource(if (neon) R.drawable.bg_card_neon else R.drawable.bg_card)
+-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(14) }
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) }
++        }
++        val head = LinearLayout(this).apply {
++            orientation = LinearLayout.HORIZONTAL
++            gravity = Gravity.CENTER_VERTICAL
++            setPadding(dp(16), dp(14), dp(12), dp(14))
+         }
+-        c.addView(TextView(this, null, 0, R.style.SectionLabel).apply { text = title })
+-        box.addView(c)
+-        return c
++        val titles = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
++        }
++        titles.addView(TextView(this, null, 0, R.style.SectionLabel).apply { text = title })
++        lastSummary = null
++        if (summary != null) {
++            val s = tv(summary, 11f, R.color.muted, false).apply {
++                setPadding(0, dp(4), 0, 0)
++                maxLines = 1
++                ellipsize = android.text.TextUtils.TruncateAt.END
++            }
++            titles.addView(s)
++            lastSummary = s
++        }
++        val arrow = tv(if (open) "▴" else "▾", 16f, R.color.muted_light, true).apply { setPadding(dp(8), 0, dp(4), 0) }
++        head.addView(titles)
++        head.addView(arrow)
++        val body = LinearLayout(this).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(dp(16), 0, dp(16), dp(16))
++            visibility = if (open) View.VISIBLE else View.GONE
++        }
++        head.setOnClickListener {
++            val show = body.visibility != View.VISIBLE
++            body.visibility = if (show) View.VISIBLE else View.GONE
++            arrow.text = if (show) "▴" else "▾"
++        }
++        outer.addView(head)
++        outer.addView(body)
++        box.addView(outer)
++        return body
++    }
++
++    /** Tombol aksi seragam: utama (berwarna) atau abu-abu. Ukuran diatur pemanggil. */
++    private fun actionBtn(text: String, primary: Boolean, onClick: () -> Unit): TextView = TextView(this).apply {
++        this.text = text
++        gravity = Gravity.CENTER
++        textSize = 13f
++        setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
++        setTextColor(if (primary) Color.WHITE else ContextCompat.getColor(this@SettingsActivity, R.color.muted_light))
++        setBackgroundResource(if (primary) R.drawable.bg_btn_primary else R.drawable.bg_btn_gray)
++        setOnClickListener { onClick() }
+     }
+ 
+     private fun tv(text: String, sp: Float, colorRes: Int, bold: Boolean) = TextView(this).apply {
+@@ -505,7 +766,7 @@ class SettingsActivity : BaseActivity() {
+     }
+ 
+     private fun hint(parent: LinearLayout, text: String) {
+-        parent.addView(tv(text, 10f, R.color.muted, false).apply { setPadding(0, dp(6), 0, 0) })
++        parent.addView(tv(text, 11f, R.color.muted, false).apply { setPadding(0, dp(6), 0, 0) })
+     }
+ 
+     private fun divider(parent: LinearLayout) {
+@@ -532,7 +793,7 @@ class SettingsActivity : BaseActivity() {
+         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(12), 0, 0) }
+         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+         col.addView(tv(title, 14f, R.color.text, true))
+-        col.addView(tv(sub, 10f, R.color.muted, false))
++        col.addView(tv(sub, 11f, R.color.muted, false))
+         val sw = SwitchCompat(this).apply {
+             minimumHeight = dp(44)
+             thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)
+diff --git a/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt b/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
+index 1084669..79873c4 100644
+--- a/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
++++ b/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
+@@ -4,49 +4,91 @@ import android.content.Context
+ import android.content.Intent
+ import android.net.Uri
+ import androidx.core.content.FileProvider
+-import org.json.JSONObject
++import androidx.core.content.pm.PackageInfoCompat
++import org.json.JSONArray
+ import java.io.File
+ import java.io.FileOutputStream
+ import java.net.HttpURLConnection
++import java.net.SocketTimeoutException
+ import java.net.URL
++import java.net.UnknownHostException
+ 
+ /**
+  * Cek rilis terbaru di GitHub Releases (dibuat otomatis oleh GitHub Actions dengan tag "build-<nomor>").
++ * Membaca daftar rilis lalu memilih nomor build tertinggi yang punya file .apk.
+  */
+ object UpdateChecker {
+ 
+     private const val REPO = "FeynJf/BracketLive"
+ 
+-    class Info(val build: Int, val title: String, val notes: String, val apkUrl: String)
++    class Info(val build: Int, val title: String, val notes: String, val apkUrl: String, val size: Long = 0L)
+ 
+-    /** Blocking — panggil dari thread background. Null kalau belum ada rilis. */
+-    fun fetchLatest(): Info? {
+-        val conn = URL("https://api.github.com/repos/$REPO/releases/latest").openConnection() as HttpURLConnection
++    /** Hasil cek: [info] terisi kalau ada rilis; kalau tidak, [error] berisi alasannya. */
++    class Check(val info: Info?, val error: String?)
++
++    /** Blocking — panggil dari thread background. */
++    fun fetchLatest(): Check {
++        val conn = URL("https://api.github.com/repos/$REPO/releases?per_page=30").openConnection() as HttpURLConnection
+         try {
+-            conn.connectTimeout = 10000
+-            conn.readTimeout = 10000
++            conn.connectTimeout = 12000
++            conn.readTimeout = 12000
+             conn.setRequestProperty("Accept", "application/vnd.github+json")
+             conn.setRequestProperty("User-Agent", "BracketLive-App")
+-            if (conn.responseCode != 200) return null
+-            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+-            val tag = json.optString("tag_name")
+-            val build = Regex("(\\d+)").find(tag)?.value?.toIntOrNull() ?: return null
+-            val assets = json.optJSONArray("assets") ?: return null
+-            var url: String? = null
+-            for (i in 0 until assets.length()) {
+-                val a = assets.getJSONObject(i)
+-                if (a.optString("name").endsWith(".apk")) {
+-                    url = a.optString("browser_download_url")
+-                    break
++            conn.setRequestProperty("Cache-Control", "no-cache")
++            val code = conn.responseCode
++            if (code == 403 || code == 429) return Check(null, "Batas permintaan GitHub tercapai. Coba lagi beberapa menit lagi.")
++            if (code == 404) return Check(null, "Repo GitHub tidak ditemukan (pastikan repo berstatus Public).")
++            if (code != 200) return Check(null, "GitHub membalas HTTP $code")
++            val arr = JSONArray(conn.inputStream.bufferedReader().use { it.readText() })
++            var best: Info? = null
++            for (i in 0 until arr.length()) {
++                val r = arr.optJSONObject(i) ?: continue
++                if (r.optBoolean("draft", false)) continue
++                val tag = r.optString("tag_name")
++                val build = Regex("(\\d+)").find(tag)?.value?.toIntOrNull() ?: continue
++                val assets = r.optJSONArray("assets") ?: continue
++                var url = ""
++                var size = 0L
++                for (k in 0 until assets.length()) {
++                    val a = assets.optJSONObject(k) ?: continue
++                    if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
++                        url = a.optString("browser_download_url")
++                        size = a.optLong("size", 0L)
++                        break
++                    }
++                }
++                if (url.isEmpty()) continue
++                val cur = best
++                if (cur == null || build > cur.build) {
++                    best = Info(build, r.optString("name", tag), r.optString("body", ""), url, size)
+                 }
+             }
+-            if (url.isNullOrEmpty()) return null
+-            return Info(build, json.optString("name", tag), json.optString("body", ""), url)
++            val found = best
++            return if (found != null) Check(found, null)
++            else Check(null, "Belum ada rilis APK di GitHub. Jalankan workflow Build APK sampai selesai dulu.")
+         } finally {
+             conn.disconnect()
+         }
+     }
+ 
++    fun explain(e: Exception): String = when (e) {
++        is UnknownHostException -> "Tidak ada koneksi internet"
++        is SocketTimeoutException -> "Koneksi ke GitHub terlalu lambat"
++        else -> "Gagal mengecek update: ${e.message ?: e.javaClass.simpleName}"
++    }
++
++    /** Pastikan APK hasil unduhan memang untuk aplikasi ini dan lebih baru. Null = aman dipasang. */
++    fun verify(ctx: Context, apk: File, currentBuild: Int): String? {
++        val info = try {
++            ctx.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)
++        } catch (e: Exception) {
++            null
++        } ?: return null
++        if (info.packageName != ctx.packageName) return "APK yang diunduh bukan untuk aplikasi Bracket Live"
++        if (PackageInfoCompat.getLongVersionCode(info) <= currentBuild) return "APK yang diunduh tidak lebih baru dari yang terpasang"
++        return null
++    }
++
+     /** Blocking — unduh APK ke cache. [onProgress] dipanggil dengan 0..100 (atau -1 kalau ukuran tak diketahui). */
+     fun download(ctx: Context, url: String, onProgress: (Int) -> Unit): File {
+         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
+@@ -58,6 +100,7 @@ object UpdateChecker {
+             conn.readTimeout = 30000
+             conn.instanceFollowRedirects = true
+             conn.setRequestProperty("User-Agent", "BracketLive-App")
++            conn.setRequestProperty("Accept", "application/octet-stream")
+             if (conn.responseCode != 200) throw IllegalStateException("HTTP ${conn.responseCode}")
+             val total = conn.contentLength
+             var done = 0L
+@@ -75,6 +118,9 @@ object UpdateChecker {
+                     }
+                 }
+             }
++            if (file.length() <= 0L || (total > 0 && file.length() != total.toLong())) {
++                throw IllegalStateException("unduhan tidak lengkap, coba lagi")
++            }
+         } finally {
+             conn.disconnect()
+         }
+diff --git a/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt b/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
+index 055adc1..20ac9f9 100644
+--- a/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
++++ b/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
+@@ -30,13 +30,21 @@ class UpdateFlow(
+     fun check(manual: Boolean) {
+         if (manual) onStatus("Mengecek update…")
+         Thread {
+-            val info = try { UpdateChecker.fetchLatest() } catch (e: Exception) { null }
++            val res = try {
++                UpdateChecker.fetchLatest()
++            } catch (e: Exception) {
++                UpdateChecker.Check(null, UpdateChecker.explain(e))
++            }
+             act.runOnUiThread {
+                 if (act.isFinishing || act.isDestroyed) return@runOnUiThread
+                 val cur = currentBuild()
++                val info = res.info
+                 when {
+-                    info == null -> if (manual) onStatus("Belum ada update / gagal terhubung ke GitHub")
+-                    info.build > cur -> showDialog(info, cur)
++                    info == null -> if (manual) onStatus(res.error ?: "Gagal mengecek update")
++                    info.build > cur -> {
++                        if (manual) onStatus("Update tersedia: build ${info.build}")
++                        showDialog(info, cur)
++                    }
+                     else -> if (manual) onStatus("Sudah versi terbaru (build $cur)")
+                 }
+             }
+@@ -57,7 +65,8 @@ class UpdateFlow(
+ 
+     private fun showDialog(info: UpdateChecker.Info, cur: Int) {
+         val notes = info.notes.trim().take(400)
+-        val msg = "Versi baru tersedia: build ${info.build} (kamu: build $cur)." +
++        val mb = if (info.size > 0) " · %.1f MB".format(info.size / 1048576.0) else ""
++        val msg = "Versi baru tersedia: build ${info.build}$mb (kamu: build $cur)." +
+             if (notes.isNotEmpty()) "\n\n$notes" else ""
+         AlertDialog.Builder(act)
+             .setTitle("Update tersedia")
+@@ -94,7 +103,13 @@ class UpdateFlow(
+                 }
+                 act.runOnUiThread {
+                     dlg.dismiss()
+-                    install(f)
++                    val problem = UpdateChecker.verify(act, f, currentBuild())
++                    if (problem != null) {
++                        onStatus(problem)
++                        Toast.makeText(act, problem, Toast.LENGTH_LONG).show()
++                    } else {
++                        install(f)
++                    }
+                 }
+             } catch (e: Exception) {
+                 act.runOnUiThread {
