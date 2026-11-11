@@ -77,7 +77,11 @@ class OverlayService : Service() {
     private var panelW = 0
     private lateinit var bubbleIcon: View
     private lateinit var ui: Context
-    private var scale = 1f
+    private var scale = 1f   // ukuran ikon
+    private var zoom = 1f    // zoom isi panel
+    private lateinit var scroll: MaxHeightScrollView
+    private lateinit var gripRight: View
+    private lateinit var gripLeft: View
     private lateinit var holdRing: HoldRingView
     private var holdAnim: ValueAnimator? = null
     private var holdDone = false
@@ -155,6 +159,11 @@ class OverlayService : Service() {
         holdRing = v.findViewById(R.id.holdRing)
         panel = v.findViewById(R.id.panel)
         content = v.findViewById(R.id.overlayContent)
+        scroll = v.findViewById(R.id.overlayScroll)
+        gripRight = v.findViewById(R.id.gripRight)
+        gripLeft = v.findViewById(R.id.gripLeft)
+        attachResize(gripRight, true)
+        attachResize(gripLeft, false)
         tvGame = v.findViewById(R.id.tvOverlayGame)
         tvChamp = v.findViewById(R.id.tvOverlayChamp)
         tvStatus = v.findViewById(R.id.tvOverlayStatus)
@@ -224,11 +233,17 @@ class OverlayService : Service() {
         img.layoutParams = img.layoutParams.apply { width = imgSize; height = imgSize }
         BubbleFactory.applyIcon(ui, img, iconIdx, custom, imgSize)
 
-        panelW = min(resources.displayMetrics.widthPixels - dp(16), dp((460 * scale).toInt()))
+        // panel: lebar, tinggi, zoom isi (terpisah dari ukuran ikon)
+        zoom = Prefs.panelZoom(this) / 100f
+        val screenW = resources.displayMetrics.widthPixels
+        val screenH = resources.displayMetrics.heightPixels
+        panelW = ((screenW - dp(16)) * Prefs.panelWidthPct(this) / 100)
         panel.layoutParams = panel.layoutParams.apply { width = panelW }
-        val maxH = min(dp((420 * scale).toInt()), (resources.displayMetrics.heightPixels * 0.5f).toInt())
-        r.findViewById<MaxHeightScrollView>(R.id.overlayScroll).maxHeightPx = maxH
+        val hPct = Prefs.panelHeightPct(this)
+        scroll.exactHeight = hPct > 0
+        scroll.maxHeightPx = if (hPct > 0) screenH * hPct / 100 else min(dp((420 * zoom).toInt()), (screenH * 0.5f).toInt())
         applyPanelStyle()
+        if (expanded) params.flags = panelFlags()
         if (expanded) render()
         updateWindow()
     }
@@ -253,7 +268,9 @@ class OverlayService : Service() {
         Anim.enterChildren(content, 90, 45)
         bubble.visibility = View.GONE
         panel.visibility = View.VISIBLE
-        params.flags = flagsPanel
+        gripRight.visibility = View.VISIBLE
+        gripLeft.visibility = View.VISIBLE
+        params.flags = panelFlags()
         params.x = max(0, (resources.displayMetrics.widthPixels - panelW) / 2)
         params.y = dp(48)
         updateWindow()
@@ -274,6 +291,8 @@ class OverlayService : Service() {
         val finish = {
             panel.animate().cancel()
             panel.visibility = View.GONE
+            gripRight.visibility = View.GONE
+            gripLeft.visibility = View.GONE
             panel.alpha = 1f
             panel.scaleX = 1f
             panel.scaleY = 1f
@@ -298,14 +317,62 @@ class OverlayService : Service() {
         }
     }
 
-    /** Latar panel hitam transparan; tingkat transparansi dari Pengaturan. */
-    private fun applyPanelStyle() {
-        val a = Prefs.panelOpacity(this) * 255 / 100
-        panel.background = GradientDrawable().apply {
-            cornerRadius = dp(20).toFloat()
-            setColor(Color.argb(a, 0, 0, 0))
-            setStroke(dp(1), Color.argb(70, 255, 255, 255))
+    /** Flag jendela saat panel terbuka (+ blur latar untuk desain "Kaca Blur", Android 12+). */
+    private fun panelFlags(): Int {
+        var f = flagsPanel
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && Prefs.panelStyle(this) == PanelDesign.BLUR) {
+            f = f or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
+            params.blurBehindRadius = dp(24)
         }
+        return f
+    }
+
+    /** Latar panel sesuai desain, sudut, dan transparansi dari Pengaturan. */
+    private fun applyPanelStyle() {
+        panel.background = PanelDesign.background(ui, Prefs.panelStyle(this), Prefs.panelRadius(this), Prefs.panelOpacity(this))
+    }
+
+    /** Ubah ukuran panel dengan menggeser pojok bawah. Hasilnya disimpan di Pengaturan. */
+    private fun attachResize(grip: View, fromRight: Boolean) {
+        grip.setOnTouchListener(object : View.OnTouchListener {
+            var sx = 0f; var sy = 0f; var startW = 0; var startH = 0; var startX = 0
+            override fun onTouch(view: View, e: MotionEvent): Boolean {
+                val screenW = resources.displayMetrics.widthPixels
+                val screenH = resources.displayMetrics.heightPixels
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        sx = e.rawX; sy = e.rawY
+                        startW = panelW; startH = scroll.height; startX = params.x
+                        view.animate().scaleX(1.25f).scaleY(1.25f).setDuration(100).start()
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (e.rawX - sx).toInt()
+                        val dy = (e.rawY - sy).toInt()
+                        val minW = dp(240)
+                        val maxW = screenW - dp(8)
+                        val newW = (if (fromRight) startW + dx else startW - dx).coerceIn(minW, maxW)
+                        val newH = (startH + dy).coerceIn(dp(100), screenH - dp(220))
+                        if (!fromRight) params.x = (startX + (startW - newW)).coerceIn(0, screenW - minW)
+                        panelW = newW
+                        panel.layoutParams = panel.layoutParams.apply { width = newW }
+                        scroll.exactHeight = true
+                        scroll.maxHeightPx = newH
+                        panel.requestLayout()
+                        updateWindow()
+                        return true
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        view.animate().scaleX(1f).scaleY(1f).setDuration(160).start()
+                        Prefs.setPanelWidthPct(this@OverlayService, panelW * 100 / (screenW - dp(16)))
+                        Prefs.setPanelHeightPct(this@OverlayService, scroll.maxHeightPx * 100 / screenH)
+                        setStatus("Ukuran panel disimpan")
+                        return true
+                    }
+                }
+                return false
+            }
+        })
     }
 
     private fun cycleOpacity() {
@@ -561,8 +628,8 @@ class OverlayService : Service() {
         content.addView(hs)
         hScroll = hs
         val cfg = BracketUi.Config(
-            cardWidthDp = (156 * scale).toInt(), rowHeightDp = (34 * scale).toInt(), textSp = 12f * scale,
-            logoDp = (22 * scale).toInt(), connectorDp = 20,
+            cardWidthDp = (156 * zoom).toInt(), rowHeightDp = (34 * zoom).toInt(), textSp = 12f * zoom,
+            logoDp = (22 * zoom).toInt(), connectorDp = 20,
             cardBg = R.drawable.bg_ov_card, chipBg = R.drawable.bg_ov_chip
         )
         BracketUi.build(ui, holder, cfg, pickLogo = null, onWin = { msg ->

@@ -223,4 +223,25 @@
                 android:background="@drawable/bg_chip_active" />
         </LinearLayout>
     </LinearLayout>
+
+    <!-- Pegangan ubah ukuran panel: geser dari pojok bawah -->
+    <ImageView
+        android:id="@+id/gripRight"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_gravity="bottom|end"
+        android:padding="8dp"
+        android:src="@drawable/ic_grip_br"
+        android:visibility="gone"
+        android:contentDescription="Geser untuk mengubah ukuran" />
+
+    <ImageView
+        android:id="@+id/gripLeft"
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:layout_gravity="bottom|start"
+        android:padding="8dp"
+        android:src="@drawable/ic_grip_bl"
+        android:visibility="gone"
+        android:contentDescription="Geser untuk mengubah ukuran" />
 </FrameLayout>

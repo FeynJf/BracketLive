@@ -64,6 +64,7 @@ class SettingsActivity : BaseActivity() {
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         buildAppearance()
         buildOverlay()
+        buildPanel()
         buildTournament()
         buildLive()
         buildUpdate()
@@ -161,7 +162,7 @@ class SettingsActivity : BaseActivity() {
         divider(c)
 
         // pratinjau + ukuran
-        label(c, "PRATINJAU TOMBOL")
+        label(c, "PRATINJAU IKON")
         previewHolder = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96)).apply { topMargin = dp(8) }
             setBackgroundResource(R.drawable.bg_chip)
@@ -169,7 +170,7 @@ class SettingsActivity : BaseActivity() {
         c.addView(previewHolder)
         refreshPreview()
 
-        slider(c, "UKURAN OVERLAY", 70, 150, Prefs.overlayScale(this), { "$it%" }) {
+        slider(c, "UKURAN IKON", 70, 150, Prefs.overlayScale(this), { "$it%" }) {
             Prefs.setOverlayScale(this, it)
             refreshPreview()
             OverlayService.onSettingsChanged?.invoke()
@@ -180,14 +181,83 @@ class SettingsActivity : BaseActivity() {
         c.addView(tilesHolder)
         buildTiles()
 
-        slider(c, "TRANSPARANSI PANEL", 30, 100, Prefs.panelOpacity(this), { "$it%" }) {
-            Prefs.setPanelOpacity(this, it)
-            OverlayService.onSettingsChanged?.invoke()
-        }
         slider(c, "TAHAN IKON UNTUK MEMBUKA", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
             Prefs.setHoldMs(this, it)
         }
         hint(c, "Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live.")
+    }
+
+    // ───────────────────────── Bagian: Desain & ukuran panel ─────────────────────────
+
+    private var panelPreviewHolder: FrameLayout? = null
+
+    private fun panelChanged() {
+        refreshPanelPreview()
+        OverlayService.onSettingsChanged?.invoke()
+    }
+
+    private fun buildPanel() {
+        val c = card("DESAIN & UKURAN PANEL", neon = true)
+        hint(c, "Panel adalah jendela bracket yang terbuka saat ikon ditahan. Ukurannya juga bisa diubah langsung dengan menggeser pojok kiri/kanan bawah panel.")
+
+        label(c, "PRATINJAU PANEL")
+        panelPreviewHolder = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(132)).apply { topMargin = dp(8) }
+        }
+        c.addView(panelPreviewHolder)
+        refreshPanelPreview()
+
+        label(c, "DESAIN PANEL")
+        chips(c, PanelDesign.names, Prefs.panelStyle(this)) { i ->
+            Prefs.setPanelStyle(this, i)
+            panelChanged()
+        }
+        slider(c, "SUDUT MEMBULAT", 0, 32, Prefs.panelRadius(this), { "$it dp" }, step = 2) {
+            Prefs.setPanelRadius(this, it); panelChanged()
+        }
+        slider(c, "TRANSPARANSI", 30, 100, Prefs.panelOpacity(this), { "$it%" }) {
+            Prefs.setPanelOpacity(this, it); panelChanged()
+        }
+        slider(c, "LEBAR PANEL", 55, 100, Prefs.panelWidthPct(this), { "$it%" }, step = 5) {
+            Prefs.setPanelWidthPct(this, it); panelChanged()
+        }
+        slider(c, "TINGGI PANEL", 0, 85, Prefs.panelHeightPct(this), { if (it < 15) "Otomatis" else "$it%" }, step = 5) {
+            Prefs.setPanelHeightPct(this, it); panelChanged()
+        }
+        slider(c, "ZOOM ISI PANEL", 70, 150, Prefs.panelZoom(this), { "$it%" }, step = 5) {
+            Prefs.setPanelZoom(this, it); panelChanged()
+        }
+        button(c, "Reset ukuran panel") {
+            Prefs.setPanelWidthPct(this, 100)
+            Prefs.setPanelHeightPct(this, 0)
+            Prefs.setPanelZoom(this, 100)
+            OverlayService.onSettingsChanged?.invoke()
+            recreate()
+        }
+        hint(c, "Desain \"Kaca Blur\" memburamkan latar di Android 12+ (kalau didukung perangkat).")
+    }
+
+    private fun refreshPanelPreview() {
+        val h = panelPreviewHolder ?: return
+        h.removeAllViews()
+        val ui = ThemeManager.themedContext(this)
+        // latar warna-warni supaya efek transparansi terlihat
+        h.background = android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+            intArrayOf(ThemeManager.accent2(ui), ThemeManager.accent3(ui), ThemeManager.accent1(ui))
+        ).apply { cornerRadius = dp(12).toFloat() }
+
+        val available = resources.displayMetrics.widthPixels - dp(2 * 14 + 2 * 16)
+        val mini = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            background = PanelDesign.background(ui, Prefs.panelStyle(this@SettingsActivity), Prefs.panelRadius(this@SettingsActivity), Prefs.panelOpacity(this@SettingsActivity))
+        }
+        mini.addView(tv("BRACKET LIVE", 11f, R.color.text, true))
+        mini.addView(tv("Tim 1        0", 11f * Prefs.panelZoom(this) / 100f, R.color.text, false).apply { setPadding(0, dp(6), 0, 0) })
+        mini.addView(tv("Tim 2        0", 11f * Prefs.panelZoom(this) / 100f, R.color.text, false).apply { setPadding(0, dp(2), 0, 0) })
+        h.addView(mini, FrameLayout.LayoutParams(available * Prefs.panelWidthPct(this) / 100, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER))
+        Anim.reveal(mini)
     }
 
     /** Dua baris tile: desain tombol, lalu ikon. */

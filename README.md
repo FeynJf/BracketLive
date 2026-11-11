@@ -18,6 +18,7 @@ Aplikasi bracket turnamen untuk live streaming — **Kotlin + XML**, tanpa HTML/
 ## Pengaturan (v1.4)
 - **Tampilan:** 5 tema UI (Neon Navy, AMOLED, Slate, Ungu Aurora, Hutan Gelap), 6 warna aksen, saklar animasi
 - **Overlay:** toggle, ukuran 70–150%, transparansi panel, lama tahan ikon, 9 pilihan ikon (termasuk foto sendiri) dan 7 desain tombol
+- **Panel overlay:** 6 desain (Kaca Hitam, Neon, Solid Tema, Gradien Aksen, Minimal, Kaca Blur), sudut, transparansi, lebar, tinggi, zoom isi; bisa juga diubah dengan menggeser pojok bawah panel
 - **Turnamen:** format bracket (Eliminasi penuh / Langsung Semifinal), poin per kill, poin per posisi
 - **Koneksi Live:** baca feed JSON custom room secara real-time
 

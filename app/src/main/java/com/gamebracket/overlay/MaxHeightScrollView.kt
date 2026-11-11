@@ -13,8 +13,13 @@ class MaxHeightScrollView @JvmOverloads constructor(
 
     var maxHeightPx: Int = Int.MAX_VALUE
 
+    /** true = tinggi pas [maxHeightPx] (diatur pengguna); false = mengikuti isi, maksimal [maxHeightPx]. */
+    var exactHeight: Boolean = false
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        val limited = View.MeasureSpec.makeMeasureSpec(maxHeightPx, View.MeasureSpec.AT_MOST)
+        val limited = View.MeasureSpec.makeMeasureSpec(
+            maxHeightPx, if (exactHeight) View.MeasureSpec.EXACTLY else View.MeasureSpec.AT_MOST
+        )
         super.onMeasure(widthMeasureSpec, limited)
     }
 }

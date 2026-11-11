@@ -27,7 +27,23 @@ object Prefs {
     /** Lama menahan ikon sebelum panel terbuka (ms, 300..1500). */
     fun holdMs(ctx: Context): Int = int(ctx, "hold_ms", 700).coerceIn(300, 1500)
     fun setHoldMs(ctx: Context, v: Int) = putInt(ctx, "hold_ms", v.coerceIn(300, 1500))
-    /** Ukuran overlay (persen, 70..150). */
+    // Desain & ukuran PANEL overlay (terpisah dari ikon)
+    fun panelStyle(ctx: Context) = int(ctx, "panel_style", 0)
+    fun setPanelStyle(ctx: Context, v: Int) = putInt(ctx, "panel_style", v)
+    /** Sudut membulat panel, dp (0..32). */
+    fun panelRadius(ctx: Context) = int(ctx, "panel_radius", 20).coerceIn(0, 32)
+    fun setPanelRadius(ctx: Context, v: Int) = putInt(ctx, "panel_radius", v.coerceIn(0, 32))
+    /** Lebar panel, persen lebar layar (55..100). */
+    fun panelWidthPct(ctx: Context) = int(ctx, "panel_w_pct", 100).coerceIn(55, 100)
+    fun setPanelWidthPct(ctx: Context, v: Int) = putInt(ctx, "panel_w_pct", v.coerceIn(55, 100))
+    /** Tinggi area isi panel, persen tinggi layar (15..85). 0 = otomatis mengikuti isi. */
+    fun panelHeightPct(ctx: Context): Int { val v = int(ctx, "panel_h_pct", 0); return if (v <= 0) 0 else v.coerceIn(15, 85) }
+    fun setPanelHeightPct(ctx: Context, v: Int) = putInt(ctx, "panel_h_pct", if (v <= 0) 0 else v.coerceIn(15, 85))
+    /** Zoom isi panel (teks & kartu bracket), persen 70..150. */
+    fun panelZoom(ctx: Context) = int(ctx, "panel_zoom", 100).coerceIn(70, 150)
+    fun setPanelZoom(ctx: Context, v: Int) = putInt(ctx, "panel_zoom", v.coerceIn(70, 150))
+
+    /** Ukuran IKON overlay (persen, 70..150). */
     fun overlayScale(ctx: Context): Int = int(ctx, "overlay_scale", 100).coerceIn(70, 150)
     fun setOverlayScale(ctx: Context, v: Int) = putInt(ctx, "overlay_scale", v.coerceIn(70, 150))
     fun bubbleStyle(ctx: Context) = int(ctx, "bubble_style", 0)
