@@ -7,10 +7,10 @@ Aplikasi bracket turnamen untuk live streaming — **Kotlin + XML**, tanpa HTML/
 - Pilih game & mode: Free Fire, PUBG Mobile, Mobile Legends, COD Mobile, Valorant, dll.
 - Bracket eliminasi 4/8/16 slot dengan format BO1/BO3/BO5
 - Ranking Battle Royale
-- **Toggle Overlay** di bagian atas — saat aktif tertulis **"Overlay Aktif"**
-- **Overlay berbentuk ikon "B"** yang bisa digeser; ketuk untuk membuka panel
+- **Pengaturan** (ikon di kanan atas): toggle Overlay, transparansi panel, lama tahan ikon, dan Cek Update
+- **Overlay berbentuk ikon "B"** yang bisa digeser, hanya muncul saat kamu di luar aplikasi; **tahan** ikon untuk membuka panel
   - Edit nama tim, tambah/kurangi skor, tentukan pemenang langsung dari overlay
-  - Ketuk tombol **—** untuk menutup panel kembali jadi ikon
+  - Panel hitam transparan; ketuk **—** untuk menutup kembali jadi ikon
 - Logo untuk setiap tim (ketuk lingkaran logo di app, ambil dari galeri)
 - Sertifikat juara yang bisa diedit sebelum disimpan (teks, logo, tema, tanda tangan tegak bersambung)
 - Update otomatis: app mengecek rilis terbaru di GitHub lalu mengarahkan Download & Install
@@ -18,7 +18,7 @@ Aplikasi bracket turnamen untuk live streaming — **Kotlin + XML**, tanpa HTML/
 ## Update otomatis
 Workflow `.github/workflows/build-apk.yml` membuat GitHub Release `build-<nomor>` berisi APK di setiap build.
 Saat aplikasi dibuka, nomor build di app dibandingkan dengan rilis terbaru; kalau ada yang lebih baru
-muncul dialog **Download & Install**. Bisa juga dicek manual lewat tulisan "Cek update" di bagian bawah.
+muncul dialog **Download & Install**. Bisa juga dicek manual lewat Pengaturan → Cek Update.
 
 ## Build di GitHub Actions
 1. Upload seluruh isi folder ini ke repo (settings.gradle harus di root)
@@ -32,4 +32,4 @@ muncul dialog **Download & Install**. Bisa juga dicek manual lewat tulisan "Cek 
 
 ## Overlay
 Settings → App management → Bracket Live → Display over other apps = ON,
-lalu nyalakan toggle **Overlay** di bagian atas aplikasi.
+lalu nyalakan toggle **Overlay** di Pengaturan aplikasi.

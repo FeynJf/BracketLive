@@ -4,39 +4,48 @@
     android:layout_width="wrap_content"
     android:layout_height="wrap_content">
 
-    <!-- Mode tertutup: hanya ikon aplikasi. Ketuk untuk membuka panel -->
-    <ImageView
+    <!-- Mode tertutup: ikon aplikasi. TAHAN untuk membuka panel -->
+    <FrameLayout
         android:id="@+id/bubble"
-        android:layout_width="44dp"
-        android:layout_height="44dp"
-        android:alpha="0.95"
-        android:src="@drawable/ic_bubble"
-        android:contentDescription="Buka Bracket Live" />
+        android:layout_width="54dp"
+        android:layout_height="54dp">
 
-    <!-- Mode terbuka -->
+        <ImageView
+            android:id="@+id/bubbleIcon"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_gravity="center"
+            android:alpha="0.95"
+            android:src="@drawable/ic_bubble"
+            android:contentDescription="Tahan untuk membuka Bracket Live" />
+
+        <com.gamebracket.overlay.HoldRingView
+            android:id="@+id/holdRing"
+            android:layout_width="54dp"
+            android:layout_height="54dp" />
+    </FrameLayout>
+
+    <!-- Mode terbuka: panel hitam transparan -->
     <LinearLayout
         android:id="@+id/panel"
         android:layout_width="320dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="2dp"
-        android:visibility="gone"
-        android:background="@drawable/bg_overlay_panel">
+        android:visibility="gone">
 
         <LinearLayout
             android:id="@+id/dragHandle"
             android:layout_width="match_parent"
-            android:layout_height="46dp"
+            android:layout_height="50dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingStart="10dp"
-            android:paddingEnd="8dp"
-            android:background="@drawable/bg_overlay_header">
+            android:paddingStart="12dp"
+            android:paddingEnd="8dp">
 
             <ImageView
                 android:layout_width="30dp"
                 android:layout_height="30dp"
-                android:src="@drawable/ic_logo"
+                android:src="@drawable/ic_logo_mark"
                 android:contentDescription="Bracket Live" />
 
             <LinearLayout
@@ -51,38 +60,77 @@
                     android:layout_height="wrap_content"
                     android:text="BRACKET LIVE"
                     android:textColor="#FFFFFF"
-                    android:textStyle="bold"
                     android:textSize="12sp"
+                    android:fontFamily="sans-serif-black"
                     android:letterSpacing="0.1" />
 
-                <TextView
-                    android:id="@+id/tvOverlayGame"
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="—"
-                    android:textColor="#00E5FF"
-                    android:textSize="9sp"
-                    android:textStyle="bold" />
+                    android:layout_marginTop="2dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="5dp"
+                        android:paddingEnd="5dp"
+                        android:paddingTop="1dp"
+                        android:paddingBottom="1dp"
+                        android:text="LIVE"
+                        android:textColor="#FFFFFF"
+                        android:textSize="7sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/bg_live_badge" />
+
+                    <TextView
+                        android:id="@+id/tvOverlayGame"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:text="—"
+                        android:textColor="#00E5FF"
+                        android:textSize="9sp"
+                        android:fontFamily="sans-serif-condensed"
+                        android:textStyle="bold" />
+                </LinearLayout>
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/btnMin"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
-                android:gravity="center"
-                android:text="—"
-                android:textColor="#FFFFFF"
-                android:textSize="16sp" />
+            <ImageView
+                android:id="@+id/btnOpacity"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_opacity"
+                android:background="@drawable/bg_ov_btn"
+                android:contentDescription="Ubah transparansi" />
 
-            <TextView
+            <ImageView
+                android:id="@+id/btnMin"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="6dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_min"
+                android:background="@drawable/bg_ov_btn"
+                android:contentDescription="Perkecil" />
+
+            <ImageView
                 android:id="@+id/btnClose"
-                android:layout_width="34dp"
-                android:layout_height="34dp"
-                android:gravity="center"
-                android:text="×"
-                android:textColor="#FF4D6D"
-                android:textSize="20sp" />
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="6dp"
+                android:padding="7dp"
+                android:src="@drawable/ic_close"
+                android:background="@drawable/bg_ov_btn"
+                android:contentDescription="Tutup overlay" />
         </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#26FFFFFF" />
 
         <com.gamebracket.overlay.MaxHeightScrollView
             android:id="@+id/overlayScroll"
@@ -106,17 +154,21 @@
             android:paddingStart="12dp"
             android:paddingEnd="12dp"
             android:paddingBottom="4dp"
-            android:text="Ketuk angka di samping tim untuk tambah poin · geser bracket ke samping"
-            android:textColor="#7E89A8"
+            android:text="Ketuk angka untuk tambah poin · geser bracket ke samping"
+            android:textColor="#99FFFFFF"
             android:textSize="10sp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#26FFFFFF" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:padding="10dp"
-            android:background="@drawable/bg_overlay_footer">
+            android:padding="10dp">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -127,11 +179,12 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🏆  JUARA"
+                    android:text="JUARA"
                     android:textColor="#FFC83D"
                     android:textSize="9sp"
                     android:textStyle="bold"
-                    android:letterSpacing="0.15" />
+                    android:fontFamily="sans-serif-condensed"
+                    android:letterSpacing="0.2" />
 
                 <TextView
                     android:id="@+id/tvOverlayChamp"
@@ -139,7 +192,8 @@
                     android:layout_height="wrap_content"
                     android:text="—"
                     android:textColor="#FFFFFF"
-                    android:textSize="15sp"
+                    android:textSize="16sp"
+                    android:fontFamily="sans-serif-condensed"
                     android:textStyle="bold"
                     android:maxLines="1"
                     android:ellipsize="end" />
@@ -150,8 +204,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="34dp"
                 android:gravity="center"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
                 android:text="Buka App"
                 android:textColor="#04101C"
                 android:textSize="11sp"

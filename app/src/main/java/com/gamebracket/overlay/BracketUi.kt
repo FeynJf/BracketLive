@@ -22,7 +22,9 @@ object BracketUi {
         val rowHeightDp: Int,
         val textSp: Float,
         val logoDp: Int,
-        val connectorDp: Int
+        val connectorDp: Int,
+        val cardBg: Int = R.drawable.bg_match,
+        val chipBg: Int = R.drawable.bg_chip
     )
 
     /**
@@ -59,7 +61,7 @@ object BracketUi {
                 letterSpacing = 0.12f
                 gravity = Gravity.CENTER
                 setTypeface(null, Typeface.BOLD)
-                setBackgroundResource(R.drawable.bg_chip)
+                setBackgroundResource(cfg.chipBg)
                 layoutParams = LinearLayout.LayoutParams(cardW, dp(22)).apply { bottomMargin = labelH - dp(22) }
             })
 
@@ -95,7 +97,7 @@ object BracketUi {
         val winner = BracketStore.winners[key]
         val box = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundResource(R.drawable.bg_match)
+            setBackgroundResource(cfg.cardBg)
         }
 
         for (s in 0..1) {
@@ -168,7 +170,7 @@ object BracketUi {
                 setTextColor(if (isWin) Color.WHITE else col(R.color.muted_light))
                 textSize = 12f
                 setTypeface(null, Typeface.BOLD)
-                setBackgroundResource(if (isWin) R.drawable.bg_btn_primary else R.drawable.bg_chip)
+                setBackgroundResource(if (isWin) R.drawable.bg_btn_primary else cfg.chipBg)
                 layoutParams = LinearLayout.LayoutParams(dp(32), dp(26)).apply { marginStart = dp(4); marginEnd = dp(6) }
                 setOnClickListener { onWin(BracketStore.registerWin(r, m, s)) }
             })

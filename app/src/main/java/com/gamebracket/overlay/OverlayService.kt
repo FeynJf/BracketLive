@@ -23,7 +23,15 @@ import android.view.ViewConfiguration
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.graphics.drawable.GradientDrawable
+import android.view.HapticFeedbackConstants
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.LinearInterpolator
+import android.view.animation.OvershootInterpolator
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.EditText
@@ -64,6 +72,11 @@ class OverlayService : Service() {
     private var bubbleX = 0
     private var bubbleY = 0
     private var panelW = 0
+    private lateinit var bubbleIcon: ImageView
+    private lateinit var holdRing: HoldRingView
+    private var holdAnim: ValueAnimator? = null
+    private var holdDone = false
+    private var tapCount = 0
     private var hScroll: HorizontalScrollView? = null
     private var savedScrollX = 0
 
@@ -132,6 +145,8 @@ class OverlayService : Service() {
         val v = LayoutInflater.from(this).inflate(R.layout.overlay_bracket, null)
         root = v
         bubble = v.findViewById(R.id.bubble)
+        bubbleIcon = v.findViewById(R.id.bubbleIcon)
+        holdRing = v.findViewById(R.id.holdRing)
         panel = v.findViewById(R.id.panel)
         content = v.findViewById(R.id.overlayContent)
         tvGame = v.findViewById(R.id.tvOverlayGame)
@@ -159,11 +174,12 @@ class OverlayService : Service() {
         params.x = dp(12)
         params.y = dp(200)
 
-        attachDrag(bubble, true) { expand() }
+        attachBubble(bubble)
         attachDrag(v.findViewById(R.id.dragHandle), false, null)
 
         v.findViewById<View>(R.id.btnClose).setOnClickListener { stopSelf() }
         v.findViewById<View>(R.id.btnMin).setOnClickListener { collapse() }
+        v.findViewById<View>(R.id.btnOpacity).setOnClickListener { cycleOpacity() }
         v.findViewById<View>(R.id.btnOpenApp).setOnClickListener {
             startActivity(
                 Intent(this, MainActivity::class.java)
@@ -182,7 +198,7 @@ class OverlayService : Service() {
     private fun applyForeground(fg: Boolean) {
         val r = root ?: return
         if (fg) {
-            if (expanded) collapse()
+            if (expanded) collapse(false)
             r.visibility = View.GONE
         } else {
             r.visibility = View.VISIBLE
@@ -194,6 +210,7 @@ class OverlayService : Service() {
         expanded = true
         bubbleX = params.x
         bubbleY = params.y
+        applyPanelStyle()
         render()
         bubble.visibility = View.GONE
         panel.visibility = View.VISIBLE
@@ -201,18 +218,167 @@ class OverlayService : Service() {
         params.x = max(0, (resources.displayMetrics.widthPixels - panelW) / 2)
         params.y = dp(48)
         updateWindow()
+        // animasi buka: muncul dari atas sambil membesar
+        panel.alpha = 0f
+        panel.scaleX = 0.88f
+        panel.scaleY = 0.88f
+        panel.pivotX = panelW / 2f
+        panel.pivotY = 0f
+        panel.animate().alpha(1f).scaleX(1f).scaleY(1f)
+            .setDuration(240).setInterpolator(DecelerateInterpolator(1.6f)).start()
     }
 
-    private fun collapse() {
+    private fun collapse(animated: Boolean = true) {
         if (!expanded) return
         expanded = false
         hideKeyboard()
-        panel.visibility = View.GONE
-        bubble.visibility = View.VISIBLE
-        params.flags = flagsBubble
-        params.x = bubbleX
-        params.y = bubbleY
-        updateWindow()
+        val finish = {
+            panel.animate().cancel()
+            panel.visibility = View.GONE
+            panel.alpha = 1f
+            panel.scaleX = 1f
+            panel.scaleY = 1f
+            bubble.visibility = View.VISIBLE
+            params.flags = flagsBubble
+            params.x = bubbleX
+            params.y = bubbleY
+            updateWindow()
+            if (animated) {
+                // ikon "pop" kembali
+                bubbleIcon.scaleX = 0.5f
+                bubbleIcon.scaleY = 0.5f
+                bubbleIcon.animate().scaleX(1f).scaleY(1f)
+                    .setDuration(300).setInterpolator(OvershootInterpolator(2.5f)).start()
+            }
+        }
+        if (animated) {
+            panel.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f)
+                .setDuration(160).withEndAction { finish() }.start()
+        } else {
+            finish()
+        }
+    }
+
+    /** Latar panel hitam transparan; tingkat transparansi dari Pengaturan. */
+    private fun applyPanelStyle() {
+        val a = Prefs.panelOpacity(this) * 255 / 100
+        panel.background = GradientDrawable().apply {
+            cornerRadius = dp(20).toFloat()
+            setColor(Color.argb(a, 0, 0, 0))
+            setStroke(dp(1), Color.argb(70, 255, 255, 255))
+        }
+    }
+
+    private fun cycleOpacity() {
+        val steps = listOf(35, 60, 85)
+        val cur = Prefs.panelOpacity(this)
+        val next = steps.firstOrNull { it > cur + 2 } ?: steps.first()
+        Prefs.setPanelOpacity(this, next)
+        applyPanelStyle()
+        setStatus("Transparansi panel $next%")
+    }
+
+    // ───────────────────────── Ikon: tahan untuk membuka ─────────────────────────
+
+    private fun pressDown() {
+        bubbleIcon.animate().scaleX(0.9f).scaleY(0.9f)
+            .setDuration(120).setInterpolator(DecelerateInterpolator()).start()
+    }
+
+    private fun pressUp() {
+        bubbleIcon.animate().scaleX(1f).scaleY(1f)
+            .setDuration(260).setInterpolator(OvershootInterpolator(3f)).start()
+    }
+
+    private fun startHold() {
+        holdRing.progress = 0f
+        holdAnim = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = Prefs.holdMs(this@OverlayService).toLong()
+            interpolator = LinearInterpolator()
+            addUpdateListener { holdRing.progress = it.animatedValue as Float }
+            addListener(object : AnimatorListenerAdapter() {
+                var cancelled = false
+                override fun onAnimationCancel(animation: Animator) { cancelled = true }
+                override fun onAnimationEnd(animation: Animator) { if (!cancelled) onHoldComplete() }
+            })
+            start()
+        }
+    }
+
+    private fun cancelHold() {
+        holdAnim?.cancel()
+        holdAnim = null
+        val cur = holdRing.progress
+        if (cur > 0f) {
+            ValueAnimator.ofFloat(cur, 0f).apply {
+                duration = 150
+                addUpdateListener { holdRing.progress = it.animatedValue as Float }
+                start()
+            }
+        }
+    }
+
+    private fun onHoldComplete() {
+        holdDone = true
+        holdAnim = null
+        holdRing.progress = 0f
+        bubble.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        pressUp()
+        expand()
+    }
+
+    private fun onShortTap() {
+        ObjectAnimator.ofFloat(
+            bubbleIcon, "translationX",
+            0f, -dp(4).toFloat(), dp(4).toFloat(), -dp(3).toFloat(), dp(3).toFloat(), 0f
+        ).setDuration(280).start()
+        if (tapCount++ < 2) toast("Tahan ikon B untuk membuka")
+    }
+
+    private fun attachBubble(target: View) {
+        val slop = ViewConfiguration.get(this).scaledTouchSlop
+        target.setOnTouchListener(object : View.OnTouchListener {
+            var ix = 0; var iy = 0; var tx = 0f; var ty = 0f; var moved = false
+            override fun onTouch(view: View, e: MotionEvent): Boolean {
+                when (e.action) {
+                    MotionEvent.ACTION_DOWN -> {
+                        ix = params.x; iy = params.y; tx = e.rawX; ty = e.rawY
+                        moved = false
+                        holdDone = false
+                        pressDown()
+                        startHold()
+                        return true
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = (e.rawX - tx).toInt()
+                        val dy = (e.rawY - ty).toInt()
+                        if (!moved && (abs(dx) > slop || abs(dy) > slop)) {
+                            moved = true
+                            cancelHold()
+                        }
+                        if (moved) {
+                            params.x = ix + dx
+                            params.y = max(0, iy + dy)
+                            updateWindow()
+                        }
+                        return true
+                    }
+                    MotionEvent.ACTION_UP -> {
+                        if (holdDone) return true
+                        cancelHold()
+                        pressUp()
+                        if (moved) snapToEdge() else onShortTap()
+                        return true
+                    }
+                    MotionEvent.ACTION_CANCEL -> {
+                        cancelHold()
+                        pressUp()
+                        return true
+                    }
+                }
+                return false
+            }
+        })
     }
 
     private fun updateWindow() {
@@ -260,7 +426,7 @@ class OverlayService : Service() {
 
     private fun snapToEdge() {
         val screenW = resources.displayMetrics.widthPixels
-        val size = dp(44)
+        val size = dp(54)
         val target = if (params.x + size / 2 < screenW / 2) dp(4) else screenW - size - dp(4)
         ValueAnimator.ofInt(params.x, target).apply {
             duration = 160
@@ -302,7 +468,7 @@ class OverlayService : Service() {
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setBackgroundResource(R.drawable.bg_match)
+                setBackgroundResource(R.drawable.bg_ov_card)
                 setPadding(dp(8), dp(6), dp(8), dp(6))
                 layoutParams = rowParams(dp(8))
             }
@@ -353,7 +519,10 @@ class OverlayService : Service() {
         hs.addView(holder)
         content.addView(hs)
         hScroll = hs
-        val cfg = BracketUi.Config(cardWidthDp = 156, rowHeightDp = 34, textSp = 12f, logoDp = 22, connectorDp = 20)
+        val cfg = BracketUi.Config(
+            cardWidthDp = 156, rowHeightDp = 34, textSp = 12f, logoDp = 22, connectorDp = 20,
+            cardBg = R.drawable.bg_ov_card, chipBg = R.drawable.bg_ov_chip
+        )
         BracketUi.build(this, holder, cfg, null) { msg ->
             msg?.let { setStatus(it) }
             render()
@@ -421,7 +590,7 @@ class OverlayService : Service() {
 
     private fun squareButton(text: String, primary: Boolean, onClick: () -> Unit) = label(text, 16f, R.color.text, true).apply {
         gravity = Gravity.CENTER
-        setBackgroundResource(if (primary) R.drawable.bg_btn_primary else R.drawable.bg_chip)
+        setBackgroundResource(if (primary) R.drawable.bg_btn_primary else R.drawable.bg_ov_chip)
         layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
         setOnClickListener { onClick() }
     }
@@ -434,7 +603,7 @@ class OverlayService : Service() {
         actions.forEachIndexed { i, (text, action) ->
             row.addView(label(text, 11f, R.color.muted_light, true).apply {
                 gravity = Gravity.CENTER
-                setBackgroundResource(R.drawable.bg_btn_gray)
+                setBackgroundResource(R.drawable.bg_ov_chip)
                 layoutParams = LinearLayout.LayoutParams(0, dp(36), 1f).apply {
                     if (i > 0) marginStart = dp(8)
                 }

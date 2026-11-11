@@ -11,13 +11,16 @@ Settings → App management → **Bracket Live**
 - Notifications → **ON**
 
 ## 3. Urutan pakai
-1. Buka Bracket Live
-2. Nyalakan toggle **Overlay** di bagian atas
+1. Buka Bracket Live → ketuk ikon **pengaturan** (kanan atas)
+2. Nyalakan toggle **Overlay**
 3. Kalau belum ada izin, tekan **Buka Settings** → aktifkan izin → kembali ke app (overlay otomatis menyala)
 4. Tulisan di samping toggle berubah menjadi **"Overlay Aktif"**
-5. Muncul ikon **B** melayang di layar — geser sesuka hati
-6. Ketuk ikon **B** untuk membuka panel, ketuk **—** untuk menutup lagi
-7. Matikan overlay dengan toggle di app atau tombol **×** di panel
+5. **Keluar dari aplikasi** (Home) — ikon **B** akan muncul melayang. Saat kamu di dalam app, ikon sengaja disembunyikan
+6. **Tahan** ikon B sampai cincin penuh untuk membuka panel (ketukan singkat tidak membuka, supaya aman saat live)
+7. Ketuk **—** untuk menutup panel kembali jadi ikon, ikon **◐** untuk mengubah transparansi
+8. Matikan overlay dengan toggle di Pengaturan atau tombol **×** di panel
+
+Di Pengaturan kamu juga bisa mengatur **transparansi panel** dan **lama menahan ikon**.
 
 ## 4. Jika masih tidak muncul
 - Restart HP setelah kasih izin

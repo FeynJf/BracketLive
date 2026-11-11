@@ -7,6 +7,8 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
@@ -55,18 +57,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var champBox: View
     private lateinit var gridGames: GridLayout
     private lateinit var gridModes: GridLayout
-    private lateinit var switchOverlay: SwitchCompat
-    private lateinit var tvOverlayState: TextView
-    private lateinit var dotOverlay: View
+    private lateinit var emptyState: View
 
     private val gameButtons = linkedMapOf<String, TextView>()
     private val modeButtons = linkedMapOf<String, TextView>()
 
-    private lateinit var tvVersion: TextView
+    private val updater by lazy { UpdateFlow(this) { status(it) } }
 
-    private var suppressSwitch = false
-    private var pendingOverlay = false
-    private var pendingApk: File? = null
     private var pickTarget: ((String) -> Unit)? = null
 
     private val logoPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
@@ -96,10 +93,7 @@ class MainActivity : AppCompatActivity() {
         champBox = findViewById(R.id.champBox)
         gridGames = findViewById(R.id.gridGames)
         gridModes = findViewById(R.id.gridModes)
-        switchOverlay = findViewById(R.id.switchOverlay)
-        tvOverlayState = findViewById(R.id.tvOverlayState)
-        dotOverlay = findViewById(R.id.dotOverlay)
-        tvVersion = findViewById(R.id.tvVersion)
+        emptyState = findViewById(R.id.emptyState)
 
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
@@ -108,7 +102,19 @@ class MainActivity : AppCompatActivity() {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 99)
         }
 
-        setupOverlayToggle()
+        findViewById<View>(R.id.btnSettings).setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        // judul "LIVE" dengan gradien neon
+        val live = findViewById<TextView>(R.id.tvTitleLive)
+        live.post {
+            val w = live.paint.measureText(live.text.toString())
+            live.paint.shader = LinearGradient(
+                0f, 0f, w, 0f,
+                intArrayOf(col(R.color.cyan), col(R.color.magenta)), null, Shader.TileMode.CLAMP
+            )
+            live.invalidate()
+        }
         setupToolbar()
         setupGames()
         findViewById<TextView>(R.id.btnReset).setOnClickListener { resetAll() }
@@ -119,8 +125,6 @@ class MainActivity : AppCompatActivity() {
 
         updateSizeChips()
         updateBOChips()
-        setOverlaySwitch(OverlayService.isRunning)
-
         // Pulihkan tampilan kalau activity dibuat ulang (mis. rotasi) tapi data masih ada
         val gid = BracketStore.gameId
         val md = BracketStore.mode
@@ -135,92 +139,27 @@ class MainActivity : AppCompatActivity() {
             status("Pilih game untuk mulai")
         }
 
-        tvVersion.text = "Versi ${versionName()}  ·  Cek update"
-        tvVersion.setOnClickListener { checkUpdate(true) }
         if (!updateChecked) {
             updateChecked = true
-            checkUpdate(false)
+            updater.check(false)
         }
     }
 
     override fun onStart() {
         super.onStart()
         AppVisibility.onStart()
-        OverlayService.stateListener = { on -> runOnUiThread { setOverlaySwitch(on) } }
     }
 
     override fun onStop() {
-        OverlayService.stateListener = null
         AppVisibility.onStop()
         super.onStop()
     }
 
     override fun onResume() {
         super.onResume()
-        if (pendingOverlay) {
-            pendingOverlay = false
-            if (Settings.canDrawOverlays(this)) startOverlay()
-        } else {
-            setOverlaySwitch(OverlayService.isRunning)
-        }
-        pendingApk?.let { apk ->
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O || packageManager.canRequestPackageInstalls()) {
-                pendingApk = null
-                installApk(apk)
-            }
-        }
+        updater.onResume()
         // Data bisa berubah dari overlay → segarkan tampilan
         refreshFromStore()
-    }
-
-    // ───────────────────────── Overlay toggle ─────────────────────────
-
-    private fun setupOverlayToggle() {
-        switchOverlay.setOnCheckedChangeListener { _, checked ->
-            if (suppressSwitch) return@setOnCheckedChangeListener
-            if (checked) startOverlay() else stopOverlay()
-        }
-    }
-
-    private fun setOverlaySwitch(on: Boolean) {
-        suppressSwitch = true
-        switchOverlay.isChecked = on
-        suppressSwitch = false
-        tvOverlayState.text = if (on) "Overlay Aktif" else "Overlay Nonaktif"
-        tvOverlayState.setTextColor(col(if (on) R.color.green else R.color.muted))
-        dotOverlay.setBackgroundResource(if (on) R.drawable.bg_dot_on else R.drawable.bg_dot_off)
-    }
-
-    private fun startOverlay() {
-        if (!Settings.canDrawOverlays(this)) {
-            setOverlaySwitch(false)
-            AlertDialog.Builder(this)
-                .setTitle("Izin Overlay")
-                .setMessage("Aktifkan izin \"Tampil di atas aplikasi lain\" untuk Bracket Live, lalu kembali ke aplikasi ini.")
-                .setPositiveButton("Buka Settings") { _, _ ->
-                    pendingOverlay = true
-                    startActivity(
-                        Intent(
-                            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                            Uri.parse("package:$packageName")
-                        )
-                    )
-                }
-                .setNegativeButton("Batal", null)
-                .show()
-            return
-        }
-        val i = Intent(this, OverlayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i)
-        else startService(i)
-        setOverlaySwitch(true)
-        status("Overlay aktif — keluar dari app, ikon B akan muncul")
-    }
-
-    private fun stopOverlay() {
-        stopService(Intent(this, OverlayService::class.java))
-        setOverlaySwitch(false)
-        status("Overlay dimatikan")
     }
 
     // ───────────────────────── Setup ─────────────────────────
@@ -309,6 +248,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyModeUi(mode: BracketStore.Mode) {
+        emptyState.visibility = View.GONE
         panelMode.visibility = View.GONE
         modeButtons.forEach { (k, v) -> styleChoice(v, k == mode.id) }
         if (mode.type == "br") {
@@ -498,105 +438,6 @@ class MainActivity : AppCompatActivity() {
             BracketStore.size = BracketStore.teams.size
             renderTeams()
         } else status("Untuk bracket, ganti jumlah slot 4/8/16")
-    }
-
-    // ───────────────────────── Update aplikasi ─────────────────────────
-
-    private fun currentBuild(): Int = try {
-        PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)).toInt()
-    } catch (e: Exception) { 0 }
-
-    private fun versionName(): String = try {
-        packageManager.getPackageInfo(packageName, 0).versionName ?: ""
-    } catch (e: Exception) { "" }
-
-    private fun checkUpdate(manual: Boolean) {
-        if (manual) status("Mengecek update…")
-        Thread {
-            val info = try { UpdateChecker.fetchLatest() } catch (e: Exception) { null }
-            runOnUiThread {
-                if (isFinishing || isDestroyed) return@runOnUiThread
-                val cur = currentBuild()
-                when {
-                    info == null -> if (manual) status("Belum ada update / gagal terhubung ke GitHub")
-                    info.build > cur -> showUpdateDialog(info, cur)
-                    else -> if (manual) status("Sudah versi terbaru (build $cur)")
-                }
-            }
-        }.start()
-    }
-
-    private fun showUpdateDialog(info: UpdateChecker.Info, cur: Int) {
-        val notes = info.notes.trim().take(400)
-        val msg = "Versi baru tersedia: build ${info.build} (kamu: build $cur)." +
-            if (notes.isNotEmpty()) "\n\n$notes" else ""
-        AlertDialog.Builder(this)
-            .setTitle("Update tersedia")
-            .setMessage(msg)
-            .setPositiveButton("Download & Install") { _, _ -> downloadAndInstall(info) }
-            .setNegativeButton("Nanti", null)
-            .show()
-    }
-
-    private fun downloadAndInstall(info: UpdateChecker.Info) {
-        val bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            max = 100
-            isIndeterminate = true
-        }
-        val box = LinearLayout(this).apply {
-            setPadding(dp(24), dp(16), dp(24), dp(8))
-            addView(bar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
-        }
-        val dlg = AlertDialog.Builder(this)
-            .setTitle("Mengunduh update…")
-            .setView(box)
-            .setCancelable(false)
-            .create()
-        dlg.show()
-        Thread {
-            try {
-                val f = UpdateChecker.download(this, info.apkUrl) { pct ->
-                    runOnUiThread {
-                        if (pct >= 0) {
-                            bar.isIndeterminate = false
-                            bar.progress = pct
-                        }
-                    }
-                }
-                runOnUiThread {
-                    dlg.dismiss()
-                    installApk(f)
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    dlg.dismiss()
-                    status("Gagal mengunduh update: ${e.message}")
-                    Toast.makeText(this, "Gagal mengunduh update", Toast.LENGTH_LONG).show()
-                }
-            }
-        }.start()
-    }
-
-    private fun installApk(apk: File) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !packageManager.canRequestPackageInstalls()) {
-            pendingApk = apk
-            AlertDialog.Builder(this)
-                .setTitle("Izin install")
-                .setMessage("Izinkan Bracket Live untuk memasang aplikasi, lalu kembali ke sini. Update akan dilanjutkan otomatis.")
-                .setPositiveButton("Buka Settings") { _, _ ->
-                    startActivity(
-                        Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName"))
-                    )
-                }
-                .setNegativeButton("Batal") { _, _ -> pendingApk = null }
-                .show()
-            return
-        }
-        try {
-            startActivity(UpdateChecker.installIntent(this, apk))
-        } catch (e: Exception) {
-            status("Gagal membuka installer: ${e.message}")
-        }
     }
 
     private fun status(msg: String) { tvStatus.text = msg }
