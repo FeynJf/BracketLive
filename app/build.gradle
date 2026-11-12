@@ -3,9 +3,10 @@ plugins {
     id 'org.jetbrains.kotlin.android'
 }
 
-// Nomor build: dikirim GitHub Actions (-PbuildNumber=...). Jadi versionCode dan dicocokkan
-// dengan tag release "build-<nomor>" oleh fitur update di aplikasi.
-def buildNumber = (project.findProperty('buildNumber') ?: '100').toInteger()
+// Nomor build = nomor run GitHub Actions + 100 (otomatis, tanpa perlu mengubah workflow).
+// Bisa juga dipaksa lewat -PbuildNumber=... Dipakai sebagai versionCode & dibandingkan oleh fitur update.
+def ciRun = System.getenv('GITHUB_RUN_NUMBER')
+def buildNumber = (project.findProperty('buildNumber') ?: (ciRun ? (ciRun.toInteger() + 100).toString() : '100')).toInteger()
 
 // Kunci tanda tangan tetap (base64 di repo). Tanpa ini tiap build GitHub Actions bertanda
 // tangan berbeda dan Android menolak update ("App not installed").
@@ -65,4 +66,82 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Publikasi APK otomatis untuk fitur "Update" di aplikasi.
+// Setelah assembleDebug di GitHub Actions, APK + version.json dikirim ke branch "apk-latest".
+// Aplikasi membaca branch itu, jadi tidak perlu GitHub Release / mengubah workflow.
+// Di luar GitHub Actions task ini dilewati. Kalau gagal, build tetap sukses (hanya peringatan).
+// ─────────────────────────────────────────────────────────────────────────────
+tasks.register('publishApk') {
+    group = 'publishing'
+    description = 'Kirim APK ke branch apk-latest (dibaca fitur update di aplikasi).'
+    doLast {
+        try {
+            if (System.getenv('GITHUB_ACTIONS') != 'true') {
+                println 'publishApk: bukan GitHub Actions, dilewati.'
+                return
+            }
+            def apk = new File(project.layout.buildDirectory.get().asFile, 'outputs/apk/debug/app-debug.apk')
+            if (!apk.exists()) {
+                println "publishApk: APK tidak ditemukan (${apk}), dilewati."
+                return
+            }
+            def root = rootProject.projectDir
+
+            def sh = { String label, List<String> cmd, File dir ->
+                def p = new ProcessBuilder(cmd).directory(dir).redirectErrorStream(true).start()
+                def out = p.inputStream.getText('UTF-8')
+                p.waitFor()
+                if (p.exitValue() != 0) {
+                    throw new GradleException("publishApk: langkah '${label}' gagal: ${out.take(300)}")
+                }
+                return out.trim()
+            }
+
+            // kredensial dari actions/checkout; cadangan: token di environment
+            def header = null
+            try {
+                header = sh('baca kredensial', ['git', '-C', root.absolutePath, 'config', '--local', '--get', 'http.https://github.com/.extraheader'], root)
+            } catch (Exception ignored) { }
+            def token = System.getenv('GITHUB_TOKEN') ?: System.getenv('GH_TOKEN')
+            if (!header && token) {
+                header = 'AUTHORIZATION: basic ' + Base64.getEncoder().encodeToString("x-access-token:${token}".getBytes('UTF-8'))
+            }
+            if (!header) {
+                println 'publishApk: kredensial git tidak ditemukan, dilewati.'
+                return
+            }
+
+            def remote = System.getenv('APK_PUBLISH_REMOTE') ?: "https://github.com/${System.getenv('GITHUB_REPOSITORY')}.git"
+            def commit = (System.getenv('GITHUB_SHA') ?: '').take(7)
+            def tmp = java.nio.file.Files.createTempDirectory('apkpub').toFile()
+            try {
+                java.nio.file.Files.copy(apk.toPath(), new File(tmp, 'BracketLive.apk').toPath())
+                new File(tmp, 'version.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                    build: buildNumber,
+                    name : "3.1.${buildNumber}".toString(),
+                    notes: "Build otomatis #${buildNumber} dari commit ${commit}".toString(),
+                    apk  : 'BracketLive.apk'
+                ]))
+                sh('git init', ['git', 'init', '-q', '-b', 'apk-latest'], tmp)
+                sh('git add', ['git', 'add', '-A'], tmp)
+                sh('git commit', ['git', '-c', 'user.name=github-actions[bot]',
+                                  '-c', 'user.email=41898282+github-actions[bot]@users.noreply.github.com',
+                                  'commit', '-q', '-m', "Build ${buildNumber}".toString()], tmp)
+                sh('git push', ['git', '-c', "http.https://github.com/.extraheader=${header}".toString(),
+                                'push', '-f', '-q', remote.toString(), 'HEAD:refs/heads/apk-latest'], tmp)
+                println "publishApk: build ${buildNumber} dipublikasikan ke branch apk-latest."
+            } finally {
+                tmp.deleteDir()
+            }
+        } catch (Throwable t) {
+            println "::warning title=Publikasi APK gagal::${t.message}"
+        }
+    }
+}
+
+afterEvaluate {
+    tasks.matching { it.name == 'assembleDebug' }.configureEach { finalizedBy('publishApk') }
 }

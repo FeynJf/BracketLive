@@ -52,9 +52,13 @@ Poin tim = kills × poin per kill + poin posisi. Nomor `match` yang berbeda diju
 tegak bersambung dari nama panitia.
 
 ## Update otomatis
-Workflow `.github/workflows/build-apk.yml` membuat GitHub Release `build-<nomor>` berisi APK di setiap build.
-Saat aplikasi dibuka, nomor build di app dibandingkan dengan rilis terbaru; kalau ada yang lebih baru
-muncul dialog **Download & Install**. Bisa juga dicek manual lewat Pengaturan → Cek Update.
+Setiap build di GitHub Actions otomatis mengirim APK terbaru + `version.json` ke branch **`apk-latest`**
+(lewat task Gradle `publishApk`, tidak perlu mengubah workflow). Aplikasi mengecek branch itu saat dibuka
+(maksimal tiap 10 menit) dan lewat **Pengaturan → Cek Update**. Kalau ada build yang lebih baru muncul dialog
+**Download & Install**. GitHub Release (tag `build-<nomor>`) tetap dibaca sebagai cadangan.
+Nomor build = nomor run Actions + 100.
+
+Unduh APK terbaru langsung (tanpa ZIP): `https://github.com/FeynJf/BracketLive/raw/apk-latest/BracketLive.apk`
 
 ## Build di GitHub Actions
 1. Upload seluruh isi folder ini ke repo (settings.gradle harus di root)

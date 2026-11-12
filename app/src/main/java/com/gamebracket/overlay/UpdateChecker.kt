@@ -3,9 +3,11 @@ package com.gamebracket.overlay
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Base64
 import androidx.core.content.FileProvider
 import androidx.core.content.pm.PackageInfoCompat
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.net.HttpURLConnection
@@ -14,12 +16,15 @@ import java.net.URL
 import java.net.UnknownHostException
 
 /**
- * Cek rilis terbaru di GitHub Releases (dibuat otomatis oleh GitHub Actions dengan tag "build-<nomor>").
- * Membaca daftar rilis lalu memilih nomor build tertinggi yang punya file .apk.
+ * Cek build terbaru. Sumber:
+ * 1) branch "apk-latest" — diisi otomatis oleh task Gradle publishApk di setiap build GitHub Actions
+ *    (tidak perlu mengubah workflow);
+ * 2) GitHub Releases dengan tag "build-<nomor>" (cadangan, kalau workflow membuat rilis).
  */
 object UpdateChecker {
 
     private const val REPO = "FeynJf/BracketLive"
+    private const val BRANCH = "apk-latest"
 
     class Info(val build: Int, val title: String, val notes: String, val apkUrl: String, val size: Long = 0L)
 
@@ -28,6 +33,79 @@ object UpdateChecker {
 
     /** Blocking — panggil dari thread background. */
     fun fetchLatest(): Check {
+        var branchError: String? = null
+        try {
+            fromBranch()?.let { return Check(it, null) }
+        } catch (e: Exception) {
+            branchError = explain(e)
+        }
+        val rel = try { fromReleases() } catch (e: Exception) { Check(null, explain(e)) }
+        if (rel.info != null) return rel
+        return Check(null, branchError ?: rel.error)
+    }
+
+    /** GET → isi respons; null kalau 404; melempar exception untuk error lain (mis. 403 rate limit). */
+    private fun httpGet(url: String, api: Boolean): String? {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        try {
+            conn.connectTimeout = 12000
+            conn.readTimeout = 12000
+            conn.useCaches = false
+            conn.setRequestProperty("User-Agent", "BracketLive-App")
+            conn.setRequestProperty("Cache-Control", "no-cache")
+            if (api) conn.setRequestProperty("Accept", "application/vnd.github+json")
+            val code = conn.responseCode
+            if (code == 404) return null
+            if (code == 403 || code == 429) throw IllegalStateException("Batas permintaan GitHub tercapai. Coba lagi beberapa menit lagi.")
+            if (code != 200) throw IllegalStateException("GitHub membalas HTTP $code")
+            return conn.inputStream.bufferedReader().use { it.readText() }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /** Baca version.json + APK dari branch apk-latest. Null = branch/berkas belum ada. */
+    private fun fromBranch(): Info? {
+        // version.json lewat API (segar); cadangan lewat raw kalau API dibatasi
+        var text: String? = null
+        var apiFailure: Exception? = null
+        try {
+            val body = httpGet("https://api.github.com/repos/$REPO/contents/version.json?ref=$BRANCH", true)
+                ?: return null // branch belum ada
+            val b64 = JSONObject(body).optString("content").replace("\n", "")
+            text = String(Base64.decode(b64, Base64.DEFAULT), Charsets.UTF_8)
+        } catch (e: Exception) {
+            apiFailure = e
+        }
+        if (text == null) {
+            text = try {
+                httpGet("https://raw.githubusercontent.com/$REPO/$BRANCH/version.json", false)
+            } catch (e: Exception) {
+                throw apiFailure ?: e
+            } ?: return null
+        }
+
+        val j = JSONObject(text)
+        val build = j.optInt("build", -1)
+        if (build < 0) return null
+        val apkName = j.optString("apk", "BracketLive.apk")
+
+        // kunci URL APK ke commit supaya tidak kena cache CDN (selalu cocok dengan version.json)
+        val sha = try {
+            httpGet("https://api.github.com/repos/$REPO/commits/$BRANCH", true)?.let { JSONObject(it).optString("sha") }
+        } catch (e: Exception) {
+            null
+        }
+        val ref = if (!sha.isNullOrEmpty()) sha else BRANCH
+        return Info(
+            build,
+            j.optString("name", "build $build"),
+            j.optString("notes", ""),
+            "https://raw.githubusercontent.com/$REPO/$ref/$apkName"
+        )
+    }
+
+    private fun fromReleases(): Check {
         val conn = URL("https://api.github.com/repos/$REPO/releases?per_page=30").openConnection() as HttpURLConnection
         try {
             conn.connectTimeout = 12000
@@ -65,7 +143,7 @@ object UpdateChecker {
             }
             val found = best
             return if (found != null) Check(found, null)
-            else Check(null, "Belum ada rilis APK di GitHub. Jalankan workflow Build APK sampai selesai dulu.")
+            else Check(null, "Belum ada build yang dipublikasikan. Jalankan workflow Build APK sampai selesai dulu — setelah itu APK terbaru otomatis terdeteksi.")
         } finally {
             conn.disconnect()
         }

@@ -77,7 +77,7 @@ class MainActivity : BaseActivity() {
     private var lastChampion: String? = null
 
     companion object {
-        private var updateChecked = false
+        private var lastUpdateCheck = 0L
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -142,10 +142,6 @@ class MainActivity : BaseActivity() {
             status("Pilih game untuk mulai")
         }
 
-        if (!updateChecked) {
-            updateChecked = true
-            updater.check(false)
-        }
         if (Prefs.feedEnabled(this) && !LiveFeed.running) LiveFeed.start(this)
 
         // animasi masuk + efek tekan
@@ -186,6 +182,12 @@ class MainActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         updater.onResume()
+        // cek update otomatis (maksimal tiap 10 menit)
+        val now = System.currentTimeMillis()
+        if (now - lastUpdateCheck > 10 * 60_000L) {
+            lastUpdateCheck = now
+            updater.check(false)
+        }
         // "Langsung semifinal" diaktifkan di Pengaturan → bracket menyesuaikan jadi 4 tim
         val cur = BracketStore.mode
         if (cur != null && cur.type != "br" && Prefs.semifinalOnly(this) && BracketStore.size != 4) {
