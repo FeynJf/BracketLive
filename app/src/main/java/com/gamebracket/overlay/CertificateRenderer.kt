@@ -86,11 +86,13 @@ object CertificateRenderer {
         return tf
     }
 
-    fun render(ctx: Context, d: Data): Bitmap {
+    /** [quality] 0.3..1: skala ukuran bitmap (dipakai untuk pratinjau ringan / cadangan saat memori sempit). */
+    fun render(ctx: Context, d: Data, quality: Float = 1f): Bitmap {
         val pal = themes[d.theme.coerceIn(0, themes.size - 1)]
         val shape = shapes[d.shape.coerceIn(0, shapes.size - 1)]
-        val W = shape.w
-        val H = shape.h
+        val q = quality.coerceIn(0.3f, 1f)
+        val W = (shape.w * q).toInt()
+        val H = (shape.h * q).toInt()
         val w = W.toFloat()
         val h = H.toFloat()
         // desain dasar 1200x850: ukuran mengikuti skala s, posisi vertikal mengikuti tinggi kanvas

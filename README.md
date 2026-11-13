@@ -51,6 +51,11 @@ Poin tim = kills × poin per kill + poin posisi. Nomor `match` yang berbeda diju
 7 tema warna, 4 bentuk (Landscape, Portrait, Persegi, 16:9), background gambar sendiri, dan tanda tangan
 tegak bersambung dari nama panitia.
 
+## Optimalisasi (v1.8)
+Pengaturan → **Performa & Diagnostik**: mode Otomatis/Hemat/Maksimal menyesuaikan animasi, confetti, blur, dan ukuran gambar
+dengan RAM & prosesor HP. Overlay menyesuaikan rotasi layar, tablet, dan layar lipat. Error dicatat otomatis (bisa disalin)
+dan crash tak terduga dilaporkan saat aplikasi dibuka lagi.
+
 ## Update otomatis
 Setiap build di GitHub Actions otomatis mengirim APK terbaru + `version.json` ke branch **`apk-latest`**
 (lewat task Gradle `publishApk`, tidak perlu mengubah workflow). Aplikasi mengecek branch itu saat dibuka

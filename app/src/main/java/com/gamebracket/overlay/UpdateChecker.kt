@@ -182,8 +182,31 @@ object UpdateChecker {
         return null
     }
 
-    /** Blocking — unduh APK ke cache. [onProgress] dipanggil dengan 0..100 (atau -1 kalau ukuran tak diketahui). */
-    fun download(ctx: Context, url: String, onProgress: (Int) -> Unit): File {
+    class DownloadCancelled : Exception("Unduhan dibatalkan")
+
+    /**
+     * Blocking — unduh APK ke cache. [onProgress] menerima (persen 0..100 atau -1, byte terunduh, total byte).
+     * Mencoba ulang otomatis sekali kalau koneksi terputus di tengah jalan.
+     */
+    fun download(
+        ctx: Context, url: String, isCancelled: () -> Boolean = { false },
+        onProgress: (Int, Long, Long) -> Unit
+    ): File {
+        var lastError: Exception? = null
+        for (attempt in 1..2) {
+            try {
+                return downloadOnce(ctx, url, isCancelled, onProgress)
+            } catch (e: DownloadCancelled) {
+                throw e
+            } catch (e: java.io.IOException) {
+                lastError = e
+                if (isCancelled()) throw DownloadCancelled()
+            }
+        }
+        throw lastError ?: IllegalStateException("unduhan gagal")
+    }
+
+    private fun downloadOnce(ctx: Context, url: String, isCancelled: () -> Boolean, onProgress: (Int, Long, Long) -> Unit): File {
         val dir = File(ctx.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val file = File(dir, "BracketLive-update.apk")
@@ -195,24 +218,26 @@ object UpdateChecker {
             conn.setRequestProperty("User-Agent", "BracketLive-App")
             conn.setRequestProperty("Accept", "application/octet-stream")
             if (conn.responseCode != 200) throw IllegalStateException("HTTP ${conn.responseCode}")
-            val total = conn.contentLength
+            val total = conn.contentLength.toLong()
             var done = 0L
             var last = -2
+            onProgress(0, 0L, total)
             conn.inputStream.use { input ->
                 FileOutputStream(file).use { out ->
                     val buf = ByteArray(32 * 1024)
                     while (true) {
+                        if (isCancelled()) { file.delete(); throw DownloadCancelled() }
                         val n = input.read(buf)
                         if (n < 0) break
                         out.write(buf, 0, n)
                         done += n
                         val pct = if (total > 0) (done * 100 / total).toInt() else -1
-                        if (pct != last) { last = pct; onProgress(pct) }
+                        if (pct != last) { last = pct; onProgress(pct, done, total) }
                     }
                 }
             }
-            if (file.length() <= 0L || (total > 0 && file.length() != total.toLong())) {
-                throw IllegalStateException("unduhan tidak lengkap, coba lagi")
+            if (file.length() <= 0L || (total > 0 && file.length() != total)) {
+                throw java.io.IOException("unduhan tidak lengkap, coba lagi")
             }
         } finally {
             conn.disconnect()

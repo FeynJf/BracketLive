@@ -58,11 +58,15 @@ object LiveFeed {
         BracketStore.mode?.id + "|" + BracketStore.teams.joinToString(";") { "${it.name}:${it.score}:${it.members.size}" } +
             "|" + BracketStore.players.joinToString(";")
 
+    /** Gagal berturut-turut → jeda cek makin panjang (maks 8x) supaya hemat baterai & kuota. */
+    private var failures = 0
+
     fun start(ctx: Context) {
         appCtx = ctx.applicationContext
         if (running) return
         running = true
         gen++
+        failures = 0
         autoFilled = false
         matchPoints.clear()
         deviceLine = null
@@ -138,13 +142,16 @@ object LiveFeed {
                         refreshStatus()
                         fireListeners(false)
                     } else if (res != null) {
+                        failures = 0
                         apply(ctx, res.first, res.second)
                     } else {
-                        feedLine = "Feed gagal: $err"
+                        failures++
+                        feedLine = "Feed gagal (coba lagi otomatis): $err"
                         refreshStatus()
                         fireListeners(false)
                     }
-                    schedule(interval, g)
+                    val backoff = if (failures > 0) (1L shl minOf(failures, 3)) else 1L
+                    schedule(interval * backoff, g)
                 }
             }
         }.start()

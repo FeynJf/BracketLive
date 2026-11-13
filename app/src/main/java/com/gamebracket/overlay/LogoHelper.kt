@@ -31,6 +31,8 @@ object LogoHelper {
         "#FF4D6D" to "#FF9A3D"
     )
 
+    fun clearCache() { cache.clear() }
+
     /** Salin gambar pilihan pengguna ke penyimpanan app (kotak 256px). Mengembalikan path file. */
     fun saveFromUri(ctx: Context, uri: Uri): String? {
         try {
@@ -49,7 +51,7 @@ object LogoHelper {
             val f = File(dir, "logo_${System.currentTimeMillis()}.png")
             FileOutputStream(f).use { out.compress(Bitmap.CompressFormat.PNG, 100, it) }
             return f.absolutePath
-        } catch (e: Exception) {
+        } catch (e: Throwable) { // termasuk OutOfMemoryError di HP RAM kecil
             return null
         }
     }
@@ -60,7 +62,8 @@ object LogoHelper {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
             ctx.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
             var sample = 1
-            while (maxOf(bounds.outWidth, bounds.outHeight) / sample > 1600) sample *= 2
+            val limit = DeviceProfile.maxImageSide(ctx)
+            while (maxOf(bounds.outWidth, bounds.outHeight) / sample > limit) sample *= 2
             val opts = BitmapFactory.Options().apply { inSampleSize = sample }
             val src = ctx.contentResolver.openInputStream(uri)?.use {
                 BitmapFactory.decodeStream(it, null, opts)
@@ -69,7 +72,7 @@ object LogoHelper {
             val f = File(dir, "bg_${System.currentTimeMillis()}.jpg")
             FileOutputStream(f).use { src.compress(Bitmap.CompressFormat.JPEG, 90, it) }
             return f.absolutePath
-        } catch (e: Exception) {
+        } catch (e: Throwable) { // termasuk OutOfMemoryError di HP RAM kecil
             return null
         }
     }
@@ -95,7 +98,7 @@ object LogoHelper {
 
         var drawn = false
         if (path != null) {
-            val src = try { BitmapFactory.decodeFile(path) } catch (e: Exception) { null }
+            val src = try { BitmapFactory.decodeFile(path) } catch (e: Throwable) { null }
             if (src != null) {
                 val scaled = Bitmap.createScaledBitmap(src, size, size, true)
                 p.shader = BitmapShader(scaled, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)

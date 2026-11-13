@@ -40,6 +40,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import android.content.ComponentCallbacks2
+import android.content.res.Configuration
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -104,7 +106,15 @@ class OverlayService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startFg()
+        try {
+            startFg()
+        } catch (e: Exception) {
+            // Android 12+ bisa menolak service foreground; Android 14 butuh tipe yang benar
+            CrashLog.record(this, "startForeground", e)
+            toast("Overlay gagal dijalankan: ${e.message}")
+            stopSelf()
+            return START_NOT_STICKY
+        }
         if (!Settings.canDrawOverlays(this)) {
             toast("Izin overlay belum aktif")
             stopSelf()
@@ -116,11 +126,43 @@ class OverlayService : Service() {
                 if (root == null) showOverlay()
                 toast("Overlay aktif — keluar dari app untuk melihat ikon B")
             } catch (e: Exception) {
-                toast("Gagal: ${e.message}")
+                CrashLog.record(this, "tampilkan overlay", e)
+                toast("Gagal menampilkan overlay: ${e.message}")
                 stopSelf()
             }
         }
         return START_STICKY
+    }
+
+    /** Rotasi, layar lipat, atau ukuran layar berubah → sesuaikan ukuran & jaga overlay tetap di dalam layar. */
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (root == null) return
+        Handler(Looper.getMainLooper()).post {
+            try {
+                applyLook()
+                val sw = resources.displayMetrics.widthPixels
+                val sh = resources.displayMetrics.heightPixels
+                val bs = dp((54 * scale).toInt())
+                bubbleX = bubbleX.coerceIn(0, max(0, sw - bs))
+                bubbleY = bubbleY.coerceIn(0, max(0, sh - bs))
+                if (expanded) {
+                    params.x = max(0, (sw - panelW) / 2)
+                    params.y = min(params.y, max(0, sh - dp(160)))
+                } else {
+                    params.x = bubbleX
+                    params.y = bubbleY
+                }
+                updateWindow()
+            } catch (e: Exception) {
+                CrashLog.record(this, "rotasi overlay", e)
+            }
+        }
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) LogoHelper.clearCache()
     }
 
     private fun setRunning(v: Boolean) {
@@ -239,7 +281,8 @@ class OverlayService : Service() {
         zoom = Prefs.panelZoom(this) / 100f
         val screenW = resources.displayMetrics.widthPixels
         val screenH = resources.displayMetrics.heightPixels
-        panelW = ((screenW - dp(16)) * Prefs.panelWidthPct(this) / 100)
+        val wPct = Prefs.panelWidthPct(this)
+        panelW = ((screenW - dp(16)) * wPct / 100).let { if (wPct >= 100) min(it, dp(640)) else it }
         panel.layoutParams = panel.layoutParams.apply { width = panelW }
         val hPct = Prefs.panelHeightPct(this)
         scroll.exactHeight = hPct > 0
@@ -322,7 +365,8 @@ class OverlayService : Service() {
     /** Flag jendela saat panel terbuka (+ blur latar untuk desain "Kaca Blur", Android 12+). */
     private fun panelFlags(): Int {
         var f = flagsPanel
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && Prefs.panelStyle(this) == PanelDesign.BLUR) {
+        if (Prefs.panelStyle(this) == PanelDesign.BLUR && DeviceProfile.allowBlur(this) &&
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && wm.isCrossWindowBlurEnabled) {
             f = f or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
             params.blurBehindRadius = dp(24)
         }
@@ -465,8 +509,9 @@ class OverlayService : Service() {
                             cancelHold()
                         }
                         if (moved) {
-                            params.x = ix + dx
-                            params.y = max(0, iy + dy)
+                            val bs = dp((54 * scale).toInt())
+                            params.x = (ix + dx).coerceIn(0, max(0, resources.displayMetrics.widthPixels - bs))
+                            params.y = (iy + dy).coerceIn(0, max(0, resources.displayMetrics.heightPixels - bs))
                             updateWindow()
                         }
                         return true
@@ -516,8 +561,8 @@ class OverlayService : Service() {
                         val dy = (e.rawY - ty).toInt()
                         if (!moved && (abs(dx) > slop || abs(dy) > slop)) moved = true
                         if (moved) {
-                            params.x = ix + dx
-                            params.y = max(0, iy + dy)
+                            params.x = (ix + dx).coerceIn(0, max(0, resources.displayMetrics.widthPixels - panelW))
+                            params.y = max(0, iy + dy).coerceAtMost(max(0, resources.displayMetrics.heightPixels - dp(120)))
                             updateWindow()
                         }
                         return true
@@ -549,6 +594,16 @@ class OverlayService : Service() {
     // ───────────────────────── Isi panel ─────────────────────────
 
     private fun render() {
+        try {
+            renderInner()
+        } catch (e: Exception) {
+            CrashLog.record(this, "render overlay", e)
+            content.removeAllViews()
+            content.addView(label("Gagal menampilkan isi: ${e.message}", 11f, R.color.red, false))
+        }
+    }
+
+    private fun renderInner() {
         hScroll?.let { savedScrollX = it.scrollX }
         hScroll = null
         content.removeAllViews()

@@ -29,7 +29,7 @@ class ConfettiView(context: Context) : View(context) {
             ThemeManager.accent1(context), ThemeManager.accent2(context), ThemeManager.accent3(context),
             Color.parseColor("#FFC83D"), Color.WHITE
         )
-        particles = List(90) {
+        particles = List(DeviceProfile.confettiCount(context)) {
             P(
                 x0 = Random.nextFloat() * w,
                 vx = (Random.nextFloat() - 0.5f) * 140f * d,

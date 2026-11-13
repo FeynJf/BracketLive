@@ -45,6 +45,9 @@ object ThemeManager {
         theme.applyStyle(accentStyles[Prefs.accent(ctx).coerceIn(0, accentStyles.size - 1)], true)
     }
 
+    /** Terapkan tema pilihan ke context apa pun (mis. dialog). */
+    fun applyTo(ctx: Context) = overlay(ctx.theme, ctx)
+
     /** Panggil di onCreate() sebelum setContentView(). */
     fun apply(activity: Activity) = overlay(activity.theme, activity)
 

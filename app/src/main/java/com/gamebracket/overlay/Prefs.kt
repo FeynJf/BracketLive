@@ -20,6 +20,13 @@ object Prefs {
     fun animations(ctx: Context) = bool(ctx, "animations", true)
     fun setAnimations(ctx: Context, v: Boolean) = putBool(ctx, "animations", v)
 
+    /** 0 = otomatis dari perangkat, 1 = hemat, 2 = maksimal. */
+    fun perfMode(ctx: Context) = int(ctx, "perf_mode", 0)
+    fun setPerfMode(ctx: Context, v: Int) = putInt(ctx, "perf_mode", v)
+
+    /** Hapus semua pengaturan (kembali ke bawaan). */
+    fun clearAll(ctx: Context) { sp(ctx).edit().clear().apply() }
+
     // ── Overlay ──
     /** Opasitas latar panel overlay, 30..100 (persen). */
     fun panelOpacity(ctx: Context): Int = int(ctx, "panel_opacity", 70).coerceIn(30, 100)

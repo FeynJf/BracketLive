@@ -75,6 +75,7 @@ class MainActivity : BaseActivity() {
     }
 
     private var lastChampion: String? = null
+    private var emptyFloat: android.animation.ObjectAnimator? = null
 
     companion object {
         private var lastUpdateCheck = 0L
@@ -144,6 +145,13 @@ class MainActivity : BaseActivity() {
 
         if (Prefs.feedEnabled(this) && !LiveFeed.running) LiveFeed.start(this)
 
+        // HP hemat: matikan transisi layout otomatis (lebih ringan)
+        if (DeviceProfile.tier(this) == DeviceProfile.Tier.LOW) {
+            findViewById<ViewGroup>(R.id.contentContainer).layoutTransition = null
+            teamList.layoutTransition = null
+        }
+        showPendingCrash()
+
         // animasi masuk + efek tekan
         Anim.enterChildren(findViewById<ViewGroup>(R.id.contentContainer), 120, 70)
         Anim.pressAll(window.decorView)
@@ -152,10 +160,17 @@ class MainActivity : BaseActivity() {
     override fun onStart() {
         super.onStart()
         LiveFeed.setListener("main") { changed -> runOnUiThread { onFeedUpdate(changed) } }
+        // logo di layar kosong melayang pelan (dibatalkan saat layar tidak terlihat → hemat baterai)
+        if (emptyState.visibility == View.VISIBLE && emptyFloat == null) {
+            (emptyState as? ViewGroup)?.getChildAt(0)?.let { emptyFloat = Anim.floatLoop(it) }
+        }
     }
 
     override fun onStop() {
         LiveFeed.setListener("main", null)
+        emptyFloat?.cancel()
+        emptyFloat = null
+        (emptyState as? ViewGroup)?.getChildAt(0)?.translationY = 0f
         super.onStop()
     }
 
@@ -295,7 +310,14 @@ class MainActivity : BaseActivity() {
         emptyState.visibility = View.GONE
         panelMode.visibility = View.GONE
         modeButtons.forEach { (k, v) -> styleChoice(v, k == mode.id) }
+        emptyFloat?.cancel()
+        emptyFloat = null
         if (mode.type == "br") {
+            // mode dengan jumlah tim tetap (CRF = 8 tim)
+            if (mode.teams > 0) {
+                BracketStore.size = mode.teams
+                updateSizeChips()
+            }
             BracketStore.ensureTeams()
             teamList.visibility = View.VISIBLE
             bracketScroll.visibility = View.GONE
@@ -326,6 +348,12 @@ class MainActivity : BaseActivity() {
     }
 
     private fun setSize(n: Int) {
+        BracketStore.mode?.let { m ->
+            if (m.type == "br" && m.teams > 0) {
+                status("${m.name} memakai ${m.teams} tim tetap")
+                return
+            }
+        }
         if (Prefs.semifinalOnly(this) && BracketStore.mode?.type != "br") {
             status("Mode langsung semifinal aktif (ubah di Pengaturan → Turnamen)")
             return
@@ -519,6 +547,33 @@ class MainActivity : BaseActivity() {
             BracketStore.size = BracketStore.teams.size
             renderTeams()
         } else status("Untuk bracket, ganti jumlah slot 4/8/16")
+    }
+
+    /** Kalau aplikasi sempat berhenti tak terduga, tawarkan menyalin laporannya. */
+    private fun showPendingCrash() {
+        val report = CrashLog.pendingFatal(this) ?: return
+        window.decorView.post {
+            val d = PremiumDialog(this).title("APLIKASI SEMPAT BERHENTI", "MAAF, ADA KESALAHAN")
+            d.message("Bracket Live sempat berhenti tak terduga, jadi data turnamen yang belum selesai mungkin hilang. Laporan teknis sudah disimpan. Kirim ke pengembang kalau masalahnya berulang.")
+            d.body.addView(TextView(this).apply {
+                text = report.lines().take(6).joinToString("\n")
+                textSize = 9f
+                typeface = Typeface.MONOSPACE
+                setTextColor(col(R.color.muted))
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+                setBackgroundResource(R.drawable.bg_chip)
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
+            })
+            d.primary("Salin Laporan") {
+                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("Laporan error Bracket Live", report))
+                Toast.makeText(this, "Laporan disalin", Toast.LENGTH_SHORT).show()
+                CrashLog.clearFatal(this)
+                true
+            }
+            d.secondary("Tutup") { CrashLog.clearFatal(this); true }
+            d.show()
+        }
     }
 
     private fun status(msg: String) { tvStatus.text = msg }

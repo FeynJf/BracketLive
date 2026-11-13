@@ -60,8 +60,8 @@ class CertificateActivity : BaseActivity() {
     }
 
     private val refresh = Runnable {
-        latest = CertificateRenderer.render(this, data)
-        ivPreview.setImageBitmap(latest)
+        latest = safeRender(DeviceProfile.previewQuality(this))
+        latest?.let { ivPreview.setImageBitmap(it) }
         if (Anim.enabled(this)) {
             ivPreview.alpha = 0.65f
             ivPreview.animate().alpha(1f).setDuration(220).start()
@@ -234,8 +234,41 @@ class CertificateActivity : BaseActivity() {
         setOnClickListener { onClick() }
     }
 
+    /** Render dengan cadangan: kalau memori habis (HP RAM kecil), ulangi dengan ukuran lebih kecil. */
+    private fun safeRender(quality: Float): Bitmap? {
+        var q = quality
+        repeat(3) {
+            try {
+                return CertificateRenderer.render(this, data, q)
+            } catch (e: OutOfMemoryError) {
+                LogoHelper.clearCache()
+                q *= 0.7f
+            } catch (e: Exception) {
+                CrashLog.record(this, "render sertifikat", e)
+                return null
+            }
+        }
+        return null
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 71) {
+            if (grantResults.isNotEmpty() && grantResults[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) save()
+            else toast("Izin penyimpanan ditolak, sertifikat tidak bisa disimpan di Android ini")
+        }
+    }
+
     private fun save() {
-        val bmp = CertificateRenderer.render(this, data)
+        // Android 9 ke bawah butuh izin penyimpanan saat menyimpan ke Galeri
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+            androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            != android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            androidx.core.app.ActivityCompat.requestPermissions(this, arrayOf(android.Manifest.permission.WRITE_EXTERNAL_STORAGE), 71)
+            return
+        }
+        val bmp = safeRender(1f) ?: run { toast("Gagal membuat sertifikat (memori penuh?)"); return }
         val safe = data.name.ifBlank { "Juara" }.replace(Regex("[^A-Za-z0-9]+"), "_")
         val fileName = "Sertifikat_${safe}_${System.currentTimeMillis() / 1000}.png"
         try {

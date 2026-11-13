@@ -79,6 +79,7 @@ class SettingsActivity : BaseActivity() {
         buildPanel()
         buildTournament()
         buildLive()
+        buildPerformance()
         buildUpdate()
         buildAbout()
         Anim.enterChildren(box, 100, 70)
@@ -679,6 +680,62 @@ class SettingsActivity : BaseActivity() {
 
     // ───────────────────────── Bagian: Update & Tentang ─────────────────────────
 
+    // ───────────────────────── Bagian: Performa & diagnostik ─────────────────────────
+
+    private fun buildPerformance() {
+        val c = card("PERFORMA & DIAGNOSTIK", summary = "Perangkat: ${DeviceProfile.tierName(this)} · animasi & overlay menyesuaikan")
+        hint(c, DeviceProfile.describe(this))
+
+        label(c, "MODE PERFORMA")
+        chips(c, listOf("Otomatis", "Hemat", "Maksimal"), Prefs.perfMode(this)) { i ->
+            Prefs.setPerfMode(this, i)
+            Toast.makeText(this, "Mode performa: ${DeviceProfile.tierName(this)}", Toast.LENGTH_SHORT).show()
+        }
+        hint(c, "Otomatis menyesuaikan RAM & prosesor. Hemat = animasi singkat, confetti ringan, tanpa blur (cocok untuk HP lawas). Maksimal = semua efek.")
+
+        divider(c)
+        label(c, "CATATAN ERROR")
+        val log = CrashLog.errors(this)
+        val logView = tv(log?.takeLast(700) ?: "Tidak ada error tercatat. 👍", 10f, if (log == null) R.color.green else R.color.muted_light, false).apply {
+            typeface = Typeface.MONOSPACE
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            setBackgroundResource(R.drawable.bg_chip)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+        }
+        c.addView(logView)
+        button(c, "Salin catatan error") {
+            val all = (CrashLog.pendingFatal(this) ?: "") + (CrashLog.errors(this) ?: "")
+            if (all.isBlank()) {
+                Toast.makeText(this, "Belum ada catatan", Toast.LENGTH_SHORT).show()
+            } else {
+                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("Catatan error Bracket Live", all))
+                Toast.makeText(this, "Catatan disalin", Toast.LENGTH_SHORT).show()
+            }
+        }
+        button(c, "Hapus catatan error") {
+            CrashLog.clearErrors(this)
+            CrashLog.clearFatal(this)
+            logView.text = "Tidak ada error tercatat. 👍"
+            logView.setTextColor(ContextCompat.getColor(this, R.color.green))
+        }
+
+        divider(c)
+        button(c, "Reset semua pengaturan") {
+            PremiumDialog.message(
+                this, "RESET PENGATURAN", "KEMBALI KE BAWAAN",
+                "Semua pengaturan (tema, overlay, poin, koneksi live) dikembalikan ke bawaan. Data turnamen tidak dihapus. Lanjutkan?",
+                "Reset", "Batal",
+                onPositive = {
+                    Prefs.clearAll(this)
+                    DeviceProfile.reset()
+                    OverlayService.onSettingsChanged?.invoke()
+                    recreate()
+                }
+            )
+        }
+    }
+
     private fun buildUpdate() {
         val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}", open = true)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
@@ -749,19 +806,31 @@ class SettingsActivity : BaseActivity() {
     private fun startOverlay() {
         if (!Settings.canDrawOverlays(this)) {
             setOverlaySwitch(false)
-            AlertDialog.Builder(this)
-                .setTitle("Izin Overlay")
-                .setMessage("Aktifkan izin \"Tampil di atas aplikasi lain\" untuk Bracket Live, lalu kembali ke aplikasi ini.")
-                .setPositiveButton("Buka Settings") { _, _ ->
+            PremiumDialog.message(
+                this, "IZIN OVERLAY", "DIPERLUKAN SEKALI SAJA",
+                "Aktifkan izin \"Tampil di atas aplikasi lain\" untuk Bracket Live, lalu kembali ke aplikasi ini. Overlay akan menyala otomatis.",
+                "Buka Settings", "Batal",
+                onPositive = {
                     pendingOverlay = true
-                    startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                    try {
+                        startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+                    } catch (e: Exception) {
+                        CrashLog.record(this, "buka izin overlay", e)
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                    }
                 }
-                .setNegativeButton("Batal", null)
-                .show()
+            )
             return
         }
         val i = Intent(this, OverlayService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) startForegroundService(i) else startService(i)
+        } catch (e: Exception) {
+            CrashLog.record(this, "mulai overlay", e)
+            setOverlaySwitch(false)
+            Toast.makeText(this, "Overlay gagal dijalankan: ${e.message}", Toast.LENGTH_LONG).show()
+            return
+        }
         setOverlaySwitch(true)
         Toast.makeText(this, "Overlay aktif — keluar dari app, ikon akan muncul", Toast.LENGTH_LONG).show()
     }
@@ -800,7 +869,10 @@ class SettingsActivity : BaseActivity() {
             titles.addView(s)
             lastSummary = s
         }
-        val arrow = tv(if (open) "▴" else "▾", 16f, R.color.muted_light, true).apply { setPadding(dp(8), 0, dp(4), 0) }
+        val arrow = tv("▾", 16f, R.color.muted_light, true).apply {
+            setPadding(dp(8), 0, dp(4), 0)
+            rotation = if (open) 180f else 0f
+        }
         head.addView(titles)
         head.addView(arrow)
         val body = LinearLayout(this).apply {
@@ -810,8 +882,8 @@ class SettingsActivity : BaseActivity() {
         }
         head.setOnClickListener {
             val show = body.visibility != View.VISIBLE
-            body.visibility = if (show) View.VISIBLE else View.GONE
-            arrow.text = if (show) "▴" else "▾"
+            if (show) Anim.expand(body) else Anim.collapse(body)
+            Anim.rotate(arrow, if (show) 180f else 0f)
         }
         outer.addView(head)
         outer.addView(body)

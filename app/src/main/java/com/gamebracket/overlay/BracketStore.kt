@@ -6,7 +6,7 @@ package com.gamebracket.overlay
 object BracketStore {
     data class Team(var name: String, var score: Int = 0, var logo: String? = null, var members: MutableList<String> = mutableListOf())
     /** type: br (poin/ranking) | bracket (eliminasi). members > 0 = tim punya roster anggota (mis. 8). */
-    data class Mode(val id: String, val name: String, val type: String, val members: Int = 0)
+    data class Mode(val id: String, val name: String, val type: String, val members: Int = 0, val teams: Int = 0)
 
     val games = linkedMapOf(
         "freefire" to ("Free Fire" to listOf(
@@ -39,7 +39,7 @@ object BracketStore {
     init {
         // Mode 8 anggota: CRF System (sistem poin) & Eliminasi (bracket)
         val extra = listOf(
-            Mode("crf", "CRF System (8 Anggota)", "br", 8),
+            Mode("crf", "CRF System (2 Anggota · 8 Tim)", "br", 2, 8),
             Mode("elim8", "Eliminasi (8 Anggota)", "bracket", 8)
         )
         for ((id, pair) in games.entries.toList()) games[id] = pair.first to (pair.second + extra)
