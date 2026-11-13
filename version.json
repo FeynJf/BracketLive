@@ -1,0 +1,6 @@
+{
+    "build": 135,
+    "name": "3.1.135",
+    "notes": "## v1.8 \u2014 Optimalisasi, download premium, CRF 2 anggota\n- 10 desain panel overlay baru (total 23): Karbon, Hologram, Sunset, Samudra, Sakura, Matrix, Es Kristal, Lava, Neon Tebal, Pixel Retro\n- Dialog update & download baru bergaya premium: progres neon, kecepatan & ukuran unduhan, tombol Batalkan dan Coba Lagi\n- Mode CRF diubah: 2 anggota per tim, 8 tim\n- Mode Performa (Otomatis/Hemat/Maksimal): animasi, confetti, blur, dan ukuran gambar menyesuaikan RAM & prosesor HP\n- Overlay lebih aman di semua perangkat: rotasi layar, tablet/layar lipat, posisi selalu di dalam layar, blur hanya jika didukung\n- Animasi lebih halus & ringan: lipatan kartu, logo melayang, dialog beranimasi; mengikuti pengaturan animasi sistem\n- Perbaikan sistem: laporan crash otomatis, catatan error di Pengaturan, unduhan & Live Connect mencoba ulang sendiri, izin simpan sertifikat di Android lama, aman dari kehabisan memori",
+    "apk": "BracketLive.apk"
+}
