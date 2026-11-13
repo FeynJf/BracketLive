@@ -38,6 +38,7 @@ class SettingsActivity : BaseActivity() {
     private val updater by lazy { UpdateFlow(this) { tvUpdateStatus?.text = it } }
 
     private var tvUpdateStatus: TextView? = null
+    private var tvUpdateNotes: TextView? = null
     private var tvFeedStatus: TextView? = null
     private var tvLiveSummary: TextView? = null
     private var tvGameName: TextView? = null
@@ -74,6 +75,7 @@ class SettingsActivity : BaseActivity() {
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         buildAppearance()
         buildOverlay()
+        buildDesign()
         buildPanel()
         buildTournament()
         buildLive()
@@ -149,7 +151,7 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Overlay ─────────────────────────
 
     private fun buildOverlay() {
-        val c = card("OVERLAY LIVE", summary = "Ikon melayang, ukuran, tahan untuk membuka", open = true)
+        val c = card("OVERLAY LIVE", summary = "Aktifkan overlay, tahan untuk membuka", open = true)
 
         // toggle
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
@@ -172,7 +174,19 @@ class SettingsActivity : BaseActivity() {
         setOverlaySwitch(OverlayService.isRunning)
         divider(c)
 
-        // pratinjau + ukuran
+        slider(c, "TAHAN IKON UNTUK MEMBUKA", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
+            Prefs.setHoldMs(this, it)
+        }
+        hint(c, "Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live.")
+    }
+
+    // ───────────────────────── Bagian: Desain overlay (galeri) ─────────────────────────
+
+    private var galleryHolder: LinearLayout? = null
+
+    private fun buildDesign() {
+        val c = card("DESAIN OVERLAY", neon = true, summary = "Pilih tampilan panel, tombol, dan ikon", open = true)
+
         label(c, "PRATINJAU IKON")
         previewHolder = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96)).apply { topMargin = dp(8) }
@@ -187,18 +201,67 @@ class SettingsActivity : BaseActivity() {
             OverlayService.onSettingsChanged?.invoke()
         }
 
-        label(c, "IKON OVERLAY")
+        label(c, "DESAIN PANEL (${PanelDesign.names.size} pilihan)")
+        galleryHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
+        c.addView(galleryHolder)
+        buildGallery()
+
+        label(c, "DESAIN TOMBOL & IKON")
         tilesHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         c.addView(tilesHolder)
         buildTiles()
-
-        slider(c, "TAHAN IKON UNTUK MEMBUKA", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
-            Prefs.setHoldMs(this, it)
-        }
-        hint(c, "Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live.")
     }
 
-    // ───────────────────────── Bagian: Desain & ukuran panel ─────────────────────────
+    /** Galeri pratinjau desain panel: tiap kartu menampilkan panel mini di atas latar warna-warni. */
+    private fun buildGallery() {
+        val h = galleryHolder ?: return
+        h.removeAllViews()
+        val ui = ThemeManager.themedContext(this)
+        val sel = Prefs.panelStyle(this)
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        PanelDesign.names.forEachIndexed { i, name ->
+            val thumb = FrameLayout(this).apply {
+                layoutParams = LinearLayout.LayoutParams(dp(92), dp(62))
+                background = android.graphics.drawable.GradientDrawable(
+                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                    intArrayOf(ThemeManager.accent2(ui), ThemeManager.accent3(ui), ThemeManager.accent1(ui))
+                ).apply { cornerRadius = dp(10).toFloat() }
+            }
+            thumb.addView(TextView(this).apply {
+                text = "BRACKET\nTim 1    0"
+                textSize = 8f
+                setTextColor(android.graphics.Color.WHITE)
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+                background = PanelDesign.background(ui, i, 10, Prefs.panelOpacity(this@SettingsActivity))
+            }, FrameLayout.LayoutParams(dp(74), dp(46), Gravity.CENTER))
+            val cell = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                gravity = Gravity.CENTER_HORIZONTAL
+                setPadding(dp(4), dp(4), dp(4), dp(4))
+                setBackgroundResource(if (i == sel) R.drawable.bg_chip_active else R.drawable.bg_chip)
+                layoutParams = LinearLayout.LayoutParams(dp(100), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) }
+                contentDescription = name
+                setOnClickListener {
+                    Prefs.setPanelStyle(this@SettingsActivity, i)
+                    buildGallery()
+                    panelChanged()
+                }
+            }
+            cell.addView(thumb)
+            cell.addView(tv(name, 10f, if (i == sel) R.color.on_accent else R.color.muted_light, true).apply {
+                gravity = Gravity.CENTER
+                maxLines = 1
+                setPadding(0, dp(4), 0, 0)
+            })
+            row.addView(cell)
+        }
+        val hs = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) }
+        h.addView(hs)
+        Anim.pressAll(h)
+        if (sel > 2) hs.post { hs.scrollTo(((sel - 1) * dp(108)), 0) }
+    }
+
+    // ───────────────────────── Bagian: Ukuran & transparansi panel ─────────────────────────
 
     private var panelPreviewHolder: FrameLayout? = null
 
@@ -208,7 +271,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun buildPanel() {
-        val c = card("DESAIN & UKURAN PANEL", neon = true, summary = "Desain, transparansi, lebar, tinggi, zoom")
+        val c = card("UKURAN & TRANSPARANSI PANEL", summary = "Transparansi, sudut, lebar, tinggi, zoom")
         hint(c, "Panel adalah jendela bracket yang terbuka saat ikon ditahan. Ukurannya juga bisa diubah langsung dengan menggeser pojok kiri/kanan bawah panel.")
 
         label(c, "PRATINJAU PANEL")
@@ -218,11 +281,7 @@ class SettingsActivity : BaseActivity() {
         c.addView(panelPreviewHolder)
         refreshPanelPreview()
 
-        label(c, "DESAIN PANEL")
-        chips(c, PanelDesign.names, Prefs.panelStyle(this)) { i ->
-            Prefs.setPanelStyle(this, i)
-            panelChanged()
-        }
+        hint(c, "Desain panel dipilih di kartu DESAIN OVERLAY di atas.")
         slider(c, "SUDUT MEMBULAT", 0, 32, Prefs.panelRadius(this), { "$it dp" }, step = 2) {
             Prefs.setPanelRadius(this, it); panelChanged()
         }
@@ -621,7 +680,7 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Update & Tentang ─────────────────────────
 
     private fun buildUpdate() {
-        val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}")
+        val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}", open = true)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
         col.addView(tv("Versi ${updater.versionName()}  (build ${updater.currentBuild()})", 15f, R.color.text, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) })
@@ -640,6 +699,26 @@ class SettingsActivity : BaseActivity() {
             setOnClickListener { updater.check(true) }
         })
         c.addView(row)
+
+        // catatan: apa saja yang baru (tampil setelah Cek Update)
+        tvUpdateNotes = tv("", 12f, R.color.text, false).apply {
+            visibility = View.GONE
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setLineSpacing(0f, 1.15f)
+            setBackgroundResource(R.drawable.bg_chip)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
+        }
+        c.addView(tvUpdateNotes)
+        updater.onResult = { info, cur, available ->
+            val notes = UpdateChecker.prettyNotes(info.notes)
+            val view = tvUpdateNotes
+            if (view != null && notes.isNotEmpty()) {
+                val head = if (available) "Yang baru di build ${info.build}:" else "Catatan versi terbaru (build ${info.build}):"
+                view.text = "$head\n$notes"
+                view.visibility = View.VISIBLE
+                Anim.reveal(view)
+            } else view?.visibility = View.GONE
+        }
     }
 
     private fun buildAbout() {

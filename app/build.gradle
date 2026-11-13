@@ -119,10 +119,23 @@ tasks.register('publishApk') {
             def tmp = java.nio.file.Files.createTempDirectory('apkpub').toFile()
             try {
                 java.nio.file.Files.copy(apk.toPath(), new File(tmp, 'BracketLive.apk').toPath())
+                // catatan update = bagian terbaru dari CHANGELOG.md (baris "## ..." paling atas + poin-poinnya)
+                def notes = "Build otomatis #${buildNumber} dari commit ${commit}".toString()
+                def changelog = new File(root, 'CHANGELOG.md')
+                if (changelog.exists()) {
+                    def lines = changelog.readLines('UTF-8')
+                    int start = lines.findIndexOf { it.startsWith('## ') }
+                    if (start >= 0) {
+                        int end = lines.findIndexOf(start + 1) { it.startsWith('## ') }
+                        def section = lines.subList(start, end < 0 ? lines.size() : end).collect { it.trim() }.findAll { it }
+                        if (section) notes = section.join('\n').take(1500)
+                        java.nio.file.Files.copy(changelog.toPath(), new File(tmp, 'CHANGELOG.md').toPath())
+                    }
+                }
                 new File(tmp, 'version.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
                     build: buildNumber,
                     name : "3.1.${buildNumber}".toString(),
-                    notes: "Build otomatis #${buildNumber} dari commit ${commit}".toString(),
+                    notes: notes,
                     apk  : 'BracketLive.apk'
                 ]))
                 sh('git init', ['git', 'init', '-q', '-b', 'apk-latest'], tmp)

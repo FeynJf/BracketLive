@@ -58,6 +58,8 @@ Setiap build di GitHub Actions otomatis mengirim APK terbaru + `version.json` ke
 **Download & Install**. GitHub Release (tag `build-<nomor>`) tetap dibaca sebagai cadangan.
 Nomor build = nomor run Actions + 100.
 
+Catatan "apa yang baru" diambil dari bagian paling atas `CHANGELOG.md` dan tampil di Pengaturan → Cek Update.
+
 Unduh APK terbaru langsung (tanpa ZIP): `https://github.com/FeynJf/BracketLive/raw/apk-latest/BracketLive.apk`
 
 ## Build di GitHub Actions

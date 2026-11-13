@@ -19,6 +19,9 @@ class UpdateFlow(
 ) {
     private var pendingApk: File? = null
 
+    /** Dipanggil setelah cek berhasil: (info build terbaru, build terpasang, apakah ada update). */
+    var onResult: ((UpdateChecker.Info, Int, Boolean) -> Unit)? = null
+
     fun currentBuild(): Int = try {
         PackageInfoCompat.getLongVersionCode(act.packageManager.getPackageInfo(act.packageName, 0)).toInt()
     } catch (e: Exception) { 0 }
@@ -39,6 +42,7 @@ class UpdateFlow(
                 if (act.isFinishing || act.isDestroyed) return@runOnUiThread
                 val cur = currentBuild()
                 val info = res.info
+                if (info != null) onResult?.invoke(info, cur, info.build > cur)
                 when {
                     info == null -> if (manual) onStatus(res.error ?: "Gagal mengecek update")
                     info.build > cur -> {
@@ -64,10 +68,10 @@ class UpdateFlow(
     private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
 
     private fun showDialog(info: UpdateChecker.Info, cur: Int) {
-        val notes = info.notes.trim().take(400)
+        val notes = UpdateChecker.prettyNotes(info.notes).take(900)
         val mb = if (info.size > 0) " · %.1f MB".format(info.size / 1048576.0) else ""
         val msg = "Versi baru tersedia: build ${info.build}$mb (kamu: build $cur)." +
-            if (notes.isNotEmpty()) "\n\n$notes" else ""
+            if (notes.isNotEmpty()) "\n\nYang baru:\n$notes" else ""
         AlertDialog.Builder(act)
             .setTitle("Update tersedia")
             .setMessage(msg)

@@ -17,7 +17,10 @@ import android.widget.ImageView
 /** Desain tombol ikon overlay (bentuk) dan pilihan gambar ikon. */
 object BubbleFactory {
 
-    val styleNames = listOf("Neon Ring", "Hexagon", "Kotak Bulat", "Kaca", "Solid", "Diamond", "Perisai")
+    val styleNames = listOf(
+        "Neon Ring", "Hexagon", "Kotak Bulat", "Kaca", "Solid", "Diamond", "Perisai",
+        "Octagon", "Ring Ganda", "Glow", "Jajar Genjang"
+    )
     val iconNames = listOf("Logo B", "Piala", "Pedang", "Gamepad", "Api", "Mahkota", "Petir", "Target", "Foto Sendiri")
     const val CUSTOM_ICON = 8
 
@@ -28,6 +31,8 @@ object BubbleFactory {
 
     private val hex = floatArrayOf(0.5f, 0.02f, 0.95f, 0.26f, 0.95f, 0.74f, 0.5f, 0.98f, 0.05f, 0.74f, 0.05f, 0.26f)
     private val diamond = floatArrayOf(0.5f, 0.02f, 0.98f, 0.5f, 0.5f, 0.98f, 0.02f, 0.5f)
+    private val octagon = floatArrayOf(0.3f, 0.02f, 0.7f, 0.02f, 0.98f, 0.3f, 0.98f, 0.7f, 0.7f, 0.98f, 0.3f, 0.98f, 0.02f, 0.7f, 0.02f, 0.3f)
+    private val skew = floatArrayOf(0.22f, 0.08f, 0.98f, 0.08f, 0.78f, 0.92f, 0.02f, 0.92f)
     private val shield = floatArrayOf(0.08f, 0.12f, 0.5f, 0.02f, 0.92f, 0.12f, 0.92f, 0.55f, 0.5f, 0.98f, 0.08f, 0.55f)
 
     /** Polygon dengan isi gelap + garis tepi gradien neon. */
@@ -78,6 +83,25 @@ object BubbleFactory {
         }
 
         return when (style) {
+            7 -> PolyDrawable(octagon, a1, a2, dark1, dark2, 2.2f * d)
+            10 -> PolyDrawable(skew, a1, a2, dark1, dark2, 2.2f * d)
+            8 -> { // Ring Ganda
+                val inner = (5f * d).toInt()
+                LayerDrawable(arrayOf(
+                    grad(GradientDrawable.OVAL, a1, a2),
+                    grad(GradientDrawable.OVAL, dark1, dark2),
+                    GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT); setStroke((1.5f * d).toInt().coerceAtLeast(1), a2) }
+                )).apply { setLayerInset(1, ring, ring, ring, ring); setLayerInset(2, inner, inner, inner, inner) }
+            }
+            9 -> { // Glow: lingkaran konsentris berpendar
+                val g1 = (2f * d).toInt().coerceAtLeast(2)
+                val g2 = (4.5f * d).toInt().coerceAtLeast(3)
+                LayerDrawable(arrayOf(
+                    GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ThemeManager.withAlpha(a1, 50)) },
+                    GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ThemeManager.withAlpha(a1, 100)) },
+                    GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(dark1, dark2)).apply { shape = GradientDrawable.OVAL; setStroke((1.5f * d).toInt().coerceAtLeast(1), a1) }
+                )).apply { setLayerInset(1, g1, g1, g1, g1); setLayerInset(2, g2, g2, g2, g2) }
+            }
             1 -> PolyDrawable(hex, a1, a2, dark1, dark2, 2.2f * d)
             5 -> PolyDrawable(diamond, a1, a2, dark1, dark2, 2.2f * d)
             6 -> PolyDrawable(shield, a1, a2, dark1, dark2, 2.2f * d)

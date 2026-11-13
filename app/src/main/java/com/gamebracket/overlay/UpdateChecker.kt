@@ -149,6 +149,21 @@ object UpdateChecker {
         }
     }
 
+    /** Ubah catatan update (markdown sederhana) jadi teks berpoin yang rapi untuk ditampilkan. */
+    fun prettyNotes(raw: String): String {
+        val sb = StringBuilder()
+        for (line in raw.replace("\r", "").lines()) {
+            val l = line.trim()
+            if (l.isEmpty()) continue
+            if (l.startsWith("-") || l.startsWith("*") || l.startsWith("•")) {
+                sb.append("• ").append(l.trimStart('-', '*', '•', ' ')).append('\n')
+            } else {
+                sb.append(l.trimStart('#', ' ')).append('\n')
+            }
+        }
+        return sb.toString().trim()
+    }
+
     fun explain(e: Exception): String = when (e) {
         is UnknownHostException -> "Tidak ada koneksi internet"
         is SocketTimeoutException -> "Koneksi ke GitHub terlalu lambat"
