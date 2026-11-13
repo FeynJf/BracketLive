@@ -1,0 +1,451 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+new file mode 100644
+index 0000000..c4031b8
+--- /dev/null
++++ b/CHANGELOG.md
+@@ -0,0 +1,22 @@
++# Catatan Update Bracket Live
++
++Bagian paling atas di bawah ini otomatis tampil di aplikasi (Pengaturan → Cek Update) saat ada update.
++
++## v1.7 — Catatan update & desain overlay
++- Setelah Cek Update, daftar yang baru tampil di bawah tombol (dan di dialog update)
++- Menu desain overlay kembali: kartu "Desain Overlay" selalu terbuka di Pengaturan
++- 13 desain panel dengan galeri pratinjau: tambah Biru Malam, Emas Premium, Terminal Hijau, Merah Api, Ungu Galaxy, Garis Ganda, Sudut Potong
++- 11 desain tombol ikon: tambah Octagon, Ring Ganda, Glow, Jajar Genjang
++- Kartu Update sekarang terbuka otomatis
++
++## v1.6 — Update otomatis
++- APK terbaru otomatis dikirim ke branch apk-latest di setiap build, aplikasi mendeteksinya sendiri
++- Tidak perlu mengubah workflow
++
++## v1.5 — Panel overlay
++- Desain, transparansi, lebar, tinggi, dan zoom panel bisa diatur
++- Ubah ukuran panel dengan menggeser pojok bawah
++
++## v1.4 — Tema, mode baru, sertifikat
++- 5 tema UI, 6 warna aksen, animasi, Koneksi Live, mode 8 anggota
++- Sertifikat: 7 tema, 4 bentuk, background sendiri
+diff --git a/README.md b/README.md
+index ee6156b..6b7d096 100644
+--- a/README.md
++++ b/README.md
+@@ -58,6 +58,8 @@ Setiap build di GitHub Actions otomatis mengirim APK terbaru + `version.json` ke
+ **Download & Install**. GitHub Release (tag `build-<nomor>`) tetap dibaca sebagai cadangan.
+ Nomor build = nomor run Actions + 100.
+ 
++Catatan "apa yang baru" diambil dari bagian paling atas `CHANGELOG.md` dan tampil di Pengaturan → Cek Update.
++
+ Unduh APK terbaru langsung (tanpa ZIP): `https://github.com/FeynJf/BracketLive/raw/apk-latest/BracketLive.apk`
+ 
+ ## Build di GitHub Actions
+diff --git a/app/build.gradle b/app/build.gradle
+index 1a84bef..cffbe5f 100644
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -119,10 +119,23 @@ tasks.register('publishApk') {
+             def tmp = java.nio.file.Files.createTempDirectory('apkpub').toFile()
+             try {
+                 java.nio.file.Files.copy(apk.toPath(), new File(tmp, 'BracketLive.apk').toPath())
++                // catatan update = bagian terbaru dari CHANGELOG.md (baris "## ..." paling atas + poin-poinnya)
++                def notes = "Build otomatis #${buildNumber} dari commit ${commit}".toString()
++                def changelog = new File(root, 'CHANGELOG.md')
++                if (changelog.exists()) {
++                    def lines = changelog.readLines('UTF-8')
++                    int start = lines.findIndexOf { it.startsWith('## ') }
++                    if (start >= 0) {
++                        int end = lines.findIndexOf(start + 1) { it.startsWith('## ') }
++                        def section = lines.subList(start, end < 0 ? lines.size() : end).collect { it.trim() }.findAll { it }
++                        if (section) notes = section.join('\n').take(1500)
++                        java.nio.file.Files.copy(changelog.toPath(), new File(tmp, 'CHANGELOG.md').toPath())
++                    }
++                }
+                 new File(tmp, 'version.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+                     build: buildNumber,
+                     name : "3.1.${buildNumber}".toString(),
+-                    notes: "Build otomatis #${buildNumber} dari commit ${commit}".toString(),
++                    notes: notes,
+                     apk  : 'BracketLive.apk'
+                 ]))
+                 sh('git init', ['git', 'init', '-q', '-b', 'apk-latest'], tmp)
+diff --git a/app/src/main/java/com/gamebracket/overlay/BubbleFactory.kt b/app/src/main/java/com/gamebracket/overlay/BubbleFactory.kt
+index b42f23d..dcee0bd 100644
+--- a/app/src/main/java/com/gamebracket/overlay/BubbleFactory.kt
++++ b/app/src/main/java/com/gamebracket/overlay/BubbleFactory.kt
+@@ -17,7 +17,10 @@ import android.widget.ImageView
+ /** Desain tombol ikon overlay (bentuk) dan pilihan gambar ikon. */
+ object BubbleFactory {
+ 
+-    val styleNames = listOf("Neon Ring", "Hexagon", "Kotak Bulat", "Kaca", "Solid", "Diamond", "Perisai")
++    val styleNames = listOf(
++        "Neon Ring", "Hexagon", "Kotak Bulat", "Kaca", "Solid", "Diamond", "Perisai",
++        "Octagon", "Ring Ganda", "Glow", "Jajar Genjang"
++    )
+     val iconNames = listOf("Logo B", "Piala", "Pedang", "Gamepad", "Api", "Mahkota", "Petir", "Target", "Foto Sendiri")
+     const val CUSTOM_ICON = 8
+ 
+@@ -28,6 +31,8 @@ object BubbleFactory {
+ 
+     private val hex = floatArrayOf(0.5f, 0.02f, 0.95f, 0.26f, 0.95f, 0.74f, 0.5f, 0.98f, 0.05f, 0.74f, 0.05f, 0.26f)
+     private val diamond = floatArrayOf(0.5f, 0.02f, 0.98f, 0.5f, 0.5f, 0.98f, 0.02f, 0.5f)
++    private val octagon = floatArrayOf(0.3f, 0.02f, 0.7f, 0.02f, 0.98f, 0.3f, 0.98f, 0.7f, 0.7f, 0.98f, 0.3f, 0.98f, 0.02f, 0.7f, 0.02f, 0.3f)
++    private val skew = floatArrayOf(0.22f, 0.08f, 0.98f, 0.08f, 0.78f, 0.92f, 0.02f, 0.92f)
+     private val shield = floatArrayOf(0.08f, 0.12f, 0.5f, 0.02f, 0.92f, 0.12f, 0.92f, 0.55f, 0.5f, 0.98f, 0.08f, 0.55f)
+ 
+     /** Polygon dengan isi gelap + garis tepi gradien neon. */
+@@ -78,6 +83,25 @@ object BubbleFactory {
+         }
+ 
+         return when (style) {
++            7 -> PolyDrawable(octagon, a1, a2, dark1, dark2, 2.2f * d)
++            10 -> PolyDrawable(skew, a1, a2, dark1, dark2, 2.2f * d)
++            8 -> { // Ring Ganda
++                val inner = (5f * d).toInt()
++                LayerDrawable(arrayOf(
++                    grad(GradientDrawable.OVAL, a1, a2),
++                    grad(GradientDrawable.OVAL, dark1, dark2),
++                    GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT); setStroke((1.5f * d).toInt().coerceAtLeast(1), a2) }
++                )).apply { setLayerInset(1, ring, ring, ring, ring); setLayerInset(2, inner, inner, inner, inner) }
++            }
++            9 -> { // Glow: lingkaran konsentris berpendar
++                val g1 = (2f * d).toInt().coerceAtLeast(2)
++                val g2 = (4.5f * d).toInt().coerceAtLeast(3)
++                LayerDrawable(arrayOf(
++                    GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ThemeManager.withAlpha(a1, 50)) },
++                    GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(ThemeManager.withAlpha(a1, 100)) },
++                    GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(dark1, dark2)).apply { shape = GradientDrawable.OVAL; setStroke((1.5f * d).toInt().coerceAtLeast(1), a1) }
++                )).apply { setLayerInset(1, g1, g1, g1, g1); setLayerInset(2, g2, g2, g2, g2) }
++            }
+             1 -> PolyDrawable(hex, a1, a2, dark1, dark2, 2.2f * d)
+             5 -> PolyDrawable(diamond, a1, a2, dark1, dark2, 2.2f * d)
+             6 -> PolyDrawable(shield, a1, a2, dark1, dark2, 2.2f * d)
+diff --git a/app/src/main/java/com/gamebracket/overlay/PanelDesign.kt b/app/src/main/java/com/gamebracket/overlay/PanelDesign.kt
+index 1a79a72..22bce00 100644
+--- a/app/src/main/java/com/gamebracket/overlay/PanelDesign.kt
++++ b/app/src/main/java/com/gamebracket/overlay/PanelDesign.kt
+@@ -9,7 +9,10 @@ import android.graphics.drawable.LayerDrawable
+ /** Desain latar panel overlay. [ctx] harus ber-tema (untuk warna aksen/permukaan). */
+ object PanelDesign {
+ 
+-    val names = listOf("Kaca Hitam", "Neon", "Solid Tema", "Gradien Aksen", "Minimal", "Kaca Blur")
++    val names = listOf(
++        "Kaca Hitam", "Neon", "Solid Tema", "Gradien Aksen", "Minimal", "Kaca Blur",
++        "Biru Malam", "Emas Premium", "Terminal Hijau", "Merah Api", "Ungu Galaxy", "Garis Ganda", "Sudut Potong"
++    )
+     const val BLUR = 5
+ 
+     fun background(ctx: Context, style: Int, radiusDp: Int, opacity: Int): Drawable {
+@@ -25,7 +28,39 @@ object PanelDesign {
+                 if (strokeColor != null) setStroke((strokeDp * d).toInt().coerceAtLeast(1), strokeColor)
+             }
+ 
++        fun dark(c: Int) = ThemeManager.withAlpha(c, a)
++        fun ring(c1: Int, c2: Int, inner: Drawable, ringDp: Float = 2f): Drawable {
++            val w = (ringDp * d).toInt().coerceAtLeast(2)
++            return LayerDrawable(arrayOf(box(intArrayOf(c1, c2)), inner)).apply { setLayerInset(1, w, w, w, w) }
++        }
++        fun innerBox(colors: IntArray, ringDp: Float = 2f) = box(colors, radius = (r - ringDp * d).coerceAtLeast(0f))
++
+         return when (style) {
++            6 -> box( // Biru Malam
++                intArrayOf(dark(Color.parseColor("#0B1030")), dark(Color.parseColor("#04050C"))),
++                ThemeManager.withAlpha(Color.parseColor("#4D6BFF"), 150)
++            )
++            7 -> ring( // Emas Premium
++                Color.parseColor("#FFC83D"), Color.parseColor("#C68A00"),
++                innerBox(intArrayOf(dark(Color.parseColor("#1A1405")), dark(Color.parseColor("#050400"))))
++            )
++            8 -> box( // Terminal Hijau
++                intArrayOf(dark(Color.parseColor("#020A05")), dark(Color.parseColor("#000000"))),
++                Color.parseColor("#00E676"), 1.5f
++            )
++            9 -> ring( // Merah Api
++                Color.parseColor("#FF8A00"), Color.parseColor("#FF2E4D"),
++                innerBox(intArrayOf(dark(Color.parseColor("#3A0A12")), dark(Color.parseColor("#0F0306"))))
++            )
++            10 -> box( // Ungu Galaxy
++                intArrayOf(dark(Color.parseColor("#2A1566")), dark(Color.parseColor("#0B0620"))),
++                ThemeManager.withAlpha(Color.parseColor("#B388FF"), 170)
++            )
++            11 -> LayerDrawable(arrayOf( // Garis Ganda
++                GradientDrawable().apply { cornerRadius = r; setColor(Color.TRANSPARENT); setStroke((2f * d).toInt().coerceAtLeast(2), a1) },
++                box(intArrayOf(dark(Color.BLACK), dark(Color.BLACK)), Color.argb(80, 255, 255, 255), 1f, (r - 5f * d).coerceAtLeast(0f))
++            )).apply { val w = (5f * d).toInt(); setLayerInset(1, w, w, w, w) }
++            12 -> CutCornerDrawable(dark(Color.BLACK), a1, (maxOf(radiusDp, 10) * d), 2f * d) // Sudut Potong
+             1 -> { // Neon: tepi gradien aksen
+                 val ring = (2f * d).toInt().coerceAtLeast(2)
+                 LayerDrawable(arrayOf(
+@@ -56,3 +91,31 @@ object PanelDesign {
+         }
+     }
+ }
++
++/** Kotak dengan dua sudut dipotong miring (kiri-atas & kanan-bawah), ala UI gamer. */
++class CutCornerDrawable(
++    private val fill: Int, private val stroke: Int, private val cut: Float, private val strokePx: Float
++) : Drawable() {
++    private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
++    override fun draw(canvas: android.graphics.Canvas) {
++        val b = bounds
++        val pad = strokePx / 2f
++        val l = b.left + pad; val t = b.top + pad; val r = b.right - pad; val bt = b.bottom - pad
++        val c = minOf(cut, (r - l) / 3f, (bt - t) / 3f)
++        val path = android.graphics.Path().apply {
++            moveTo(l + c, t); lineTo(r, t); lineTo(r, bt - c); lineTo(r - c, bt); lineTo(l, bt); lineTo(l, t + c); close()
++        }
++        paint.style = android.graphics.Paint.Style.FILL
++        paint.color = fill
++        canvas.drawPath(path, paint)
++        paint.style = android.graphics.Paint.Style.STROKE
++        paint.strokeWidth = strokePx
++        paint.strokeJoin = android.graphics.Paint.Join.MITER
++        paint.color = stroke
++        canvas.drawPath(path, paint)
++    }
++    override fun setAlpha(alpha: Int) { paint.alpha = alpha }
++    override fun setColorFilter(cf: android.graphics.ColorFilter?) { paint.colorFilter = cf }
++    @Deprecated("Deprecated in Java")
++    override fun getOpacity() = android.graphics.PixelFormat.TRANSLUCENT
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+index a33a1e1..468fe2b 100644
+--- a/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
++++ b/app/src/main/java/com/gamebracket/overlay/SettingsActivity.kt
+@@ -38,6 +38,7 @@ class SettingsActivity : BaseActivity() {
+     private val updater by lazy { UpdateFlow(this) { tvUpdateStatus?.text = it } }
+ 
+     private var tvUpdateStatus: TextView? = null
++    private var tvUpdateNotes: TextView? = null
+     private var tvFeedStatus: TextView? = null
+     private var tvLiveSummary: TextView? = null
+     private var tvGameName: TextView? = null
+@@ -74,6 +75,7 @@ class SettingsActivity : BaseActivity() {
+         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
+         buildAppearance()
+         buildOverlay()
++        buildDesign()
+         buildPanel()
+         buildTournament()
+         buildLive()
+@@ -149,7 +151,7 @@ class SettingsActivity : BaseActivity() {
+     // ───────────────────────── Bagian: Overlay ─────────────────────────
+ 
+     private fun buildOverlay() {
+-        val c = card("OVERLAY LIVE", summary = "Ikon melayang, ukuran, tahan untuk membuka", open = true)
++        val c = card("OVERLAY LIVE", summary = "Aktifkan overlay, tahan untuk membuka", open = true)
+ 
+         // toggle
+         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
+@@ -172,7 +174,19 @@ class SettingsActivity : BaseActivity() {
+         setOverlaySwitch(OverlayService.isRunning)
+         divider(c)
+ 
+-        // pratinjau + ukuran
++        slider(c, "TAHAN IKON UNTUK MEMBUKA", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
++            Prefs.setHoldMs(this, it)
++        }
++        hint(c, "Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live.")
++    }
++
++    // ───────────────────────── Bagian: Desain overlay (galeri) ─────────────────────────
++
++    private var galleryHolder: LinearLayout? = null
++
++    private fun buildDesign() {
++        val c = card("DESAIN OVERLAY", neon = true, summary = "Pilih tampilan panel, tombol, dan ikon", open = true)
++
+         label(c, "PRATINJAU IKON")
+         previewHolder = FrameLayout(this).apply {
+             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96)).apply { topMargin = dp(8) }
+@@ -187,18 +201,67 @@ class SettingsActivity : BaseActivity() {
+             OverlayService.onSettingsChanged?.invoke()
+         }
+ 
+-        label(c, "IKON OVERLAY")
++        label(c, "DESAIN PANEL (${PanelDesign.names.size} pilihan)")
++        galleryHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
++        c.addView(galleryHolder)
++        buildGallery()
++
++        label(c, "DESAIN TOMBOL & IKON")
+         tilesHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+         c.addView(tilesHolder)
+         buildTiles()
++    }
+ 
+-        slider(c, "TAHAN IKON UNTUK MEMBUKA", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
+-            Prefs.setHoldMs(this, it)
++    /** Galeri pratinjau desain panel: tiap kartu menampilkan panel mini di atas latar warna-warni. */
++    private fun buildGallery() {
++        val h = galleryHolder ?: return
++        h.removeAllViews()
++        val ui = ThemeManager.themedContext(this)
++        val sel = Prefs.panelStyle(this)
++        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
++        PanelDesign.names.forEachIndexed { i, name ->
++            val thumb = FrameLayout(this).apply {
++                layoutParams = LinearLayout.LayoutParams(dp(92), dp(62))
++                background = android.graphics.drawable.GradientDrawable(
++                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
++                    intArrayOf(ThemeManager.accent2(ui), ThemeManager.accent3(ui), ThemeManager.accent1(ui))
++                ).apply { cornerRadius = dp(10).toFloat() }
++            }
++            thumb.addView(TextView(this).apply {
++                text = "BRACKET\nTim 1    0"
++                textSize = 8f
++                setTextColor(android.graphics.Color.WHITE)
++                setPadding(dp(8), dp(6), dp(8), dp(6))
++                background = PanelDesign.background(ui, i, 10, Prefs.panelOpacity(this@SettingsActivity))
++            }, FrameLayout.LayoutParams(dp(74), dp(46), Gravity.CENTER))
++            val cell = LinearLayout(this).apply {
++                orientation = LinearLayout.VERTICAL
++                gravity = Gravity.CENTER_HORIZONTAL
++                setPadding(dp(4), dp(4), dp(4), dp(4))
++                setBackgroundResource(if (i == sel) R.drawable.bg_chip_active else R.drawable.bg_chip)
++                layoutParams = LinearLayout.LayoutParams(dp(100), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) }
++                contentDescription = name
++                setOnClickListener {
++                    Prefs.setPanelStyle(this@SettingsActivity, i)
++                    buildGallery()
++                    panelChanged()
++                }
++            }
++            cell.addView(thumb)
++            cell.addView(tv(name, 10f, if (i == sel) R.color.on_accent else R.color.muted_light, true).apply {
++                gravity = Gravity.CENTER
++                maxLines = 1
++                setPadding(0, dp(4), 0, 0)
++            })
++            row.addView(cell)
+         }
+-        hint(c, "Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live.")
++        val hs = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) }
++        h.addView(hs)
++        Anim.pressAll(h)
++        if (sel > 2) hs.post { hs.scrollTo(((sel - 1) * dp(108)), 0) }
+     }
+ 
+-    // ───────────────────────── Bagian: Desain & ukuran panel ─────────────────────────
++    // ───────────────────────── Bagian: Ukuran & transparansi panel ─────────────────────────
+ 
+     private var panelPreviewHolder: FrameLayout? = null
+ 
+@@ -208,7 +271,7 @@ class SettingsActivity : BaseActivity() {
+     }
+ 
+     private fun buildPanel() {
+-        val c = card("DESAIN & UKURAN PANEL", neon = true, summary = "Desain, transparansi, lebar, tinggi, zoom")
++        val c = card("UKURAN & TRANSPARANSI PANEL", summary = "Transparansi, sudut, lebar, tinggi, zoom")
+         hint(c, "Panel adalah jendela bracket yang terbuka saat ikon ditahan. Ukurannya juga bisa diubah langsung dengan menggeser pojok kiri/kanan bawah panel.")
+ 
+         label(c, "PRATINJAU PANEL")
+@@ -218,11 +281,7 @@ class SettingsActivity : BaseActivity() {
+         c.addView(panelPreviewHolder)
+         refreshPanelPreview()
+ 
+-        label(c, "DESAIN PANEL")
+-        chips(c, PanelDesign.names, Prefs.panelStyle(this)) { i ->
+-            Prefs.setPanelStyle(this, i)
+-            panelChanged()
+-        }
++        hint(c, "Desain panel dipilih di kartu DESAIN OVERLAY di atas.")
+         slider(c, "SUDUT MEMBULAT", 0, 32, Prefs.panelRadius(this), { "$it dp" }, step = 2) {
+             Prefs.setPanelRadius(this, it); panelChanged()
+         }
+@@ -621,7 +680,7 @@ class SettingsActivity : BaseActivity() {
+     // ───────────────────────── Bagian: Update & Tentang ─────────────────────────
+ 
+     private fun buildUpdate() {
+-        val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}")
++        val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}", open = true)
+         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
+         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
+         col.addView(tv("Versi ${updater.versionName()}  (build ${updater.currentBuild()})", 15f, R.color.text, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) })
+@@ -640,6 +699,26 @@ class SettingsActivity : BaseActivity() {
+             setOnClickListener { updater.check(true) }
+         })
+         c.addView(row)
++
++        // catatan: apa saja yang baru (tampil setelah Cek Update)
++        tvUpdateNotes = tv("", 12f, R.color.text, false).apply {
++            visibility = View.GONE
++            setPadding(dp(12), dp(10), dp(12), dp(10))
++            setLineSpacing(0f, 1.15f)
++            setBackgroundResource(R.drawable.bg_chip)
++            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
++        }
++        c.addView(tvUpdateNotes)
++        updater.onResult = { info, cur, available ->
++            val notes = UpdateChecker.prettyNotes(info.notes)
++            val view = tvUpdateNotes
++            if (view != null && notes.isNotEmpty()) {
++                val head = if (available) "Yang baru di build ${info.build}:" else "Catatan versi terbaru (build ${info.build}):"
++                view.text = "$head\n$notes"
++                view.visibility = View.VISIBLE
++                Anim.reveal(view)
++            } else view?.visibility = View.GONE
++        }
+     }
+ 
+     private fun buildAbout() {
+diff --git a/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt b/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
+index 38209ee..39ca07f 100644
+--- a/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
++++ b/app/src/main/java/com/gamebracket/overlay/UpdateChecker.kt
+@@ -149,6 +149,21 @@ object UpdateChecker {
+         }
+     }
+ 
++    /** Ubah catatan update (markdown sederhana) jadi teks berpoin yang rapi untuk ditampilkan. */
++    fun prettyNotes(raw: String): String {
++        val sb = StringBuilder()
++        for (line in raw.replace("\r", "").lines()) {
++            val l = line.trim()
++            if (l.isEmpty()) continue
++            if (l.startsWith("-") || l.startsWith("*") || l.startsWith("•")) {
++                sb.append("• ").append(l.trimStart('-', '*', '•', ' ')).append('\n')
++            } else {
++                sb.append(l.trimStart('#', ' ')).append('\n')
++            }
++        }
++        return sb.toString().trim()
++    }
++
+     fun explain(e: Exception): String = when (e) {
+         is UnknownHostException -> "Tidak ada koneksi internet"
+         is SocketTimeoutException -> "Koneksi ke GitHub terlalu lambat"
+diff --git a/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt b/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
+index 20ac9f9..e4bc1eb 100644
+--- a/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
++++ b/app/src/main/java/com/gamebracket/overlay/UpdateFlow.kt
+@@ -19,6 +19,9 @@ class UpdateFlow(
+ ) {
+     private var pendingApk: File? = null
+ 
++    /** Dipanggil setelah cek berhasil: (info build terbaru, build terpasang, apakah ada update). */
++    var onResult: ((UpdateChecker.Info, Int, Boolean) -> Unit)? = null
++
+     fun currentBuild(): Int = try {
+         PackageInfoCompat.getLongVersionCode(act.packageManager.getPackageInfo(act.packageName, 0)).toInt()
+     } catch (e: Exception) { 0 }
+@@ -39,6 +42,7 @@ class UpdateFlow(
+                 if (act.isFinishing || act.isDestroyed) return@runOnUiThread
+                 val cur = currentBuild()
+                 val info = res.info
++                if (info != null) onResult?.invoke(info, cur, info.build > cur)
+                 when {
+                     info == null -> if (manual) onStatus(res.error ?: "Gagal mengecek update")
+                     info.build > cur -> {
+@@ -64,10 +68,10 @@ class UpdateFlow(
+     private fun dp(v: Int) = (v * act.resources.displayMetrics.density).toInt()
+ 
+     private fun showDialog(info: UpdateChecker.Info, cur: Int) {
+-        val notes = info.notes.trim().take(400)
++        val notes = UpdateChecker.prettyNotes(info.notes).take(900)
+         val mb = if (info.size > 0) " · %.1f MB".format(info.size / 1048576.0) else ""
+         val msg = "Versi baru tersedia: build ${info.build}$mb (kamu: build $cur)." +
+-            if (notes.isNotEmpty()) "\n\n$notes" else ""
++            if (notes.isNotEmpty()) "\n\nYang baru:\n$notes" else ""
+         AlertDialog.Builder(act)
+             .setTitle("Update tersedia")
+             .setMessage(msg)
