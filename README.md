@@ -51,6 +51,11 @@ Poin tim = kills × poin per kill + poin posisi. Nomor `match` yang berbeda diju
 7 tema warna, 4 bentuk (Landscape, Portrait, Persegi, 16:9), background gambar sendiri, dan tanda tangan
 tegak bersambung dari nama panitia.
 
+## Rilis 1.9
+- 25 tema UI + warna aksen bebas (pemilih warna penuh)
+- 35 bentuk panel overlay, 66 desain tombol, 44 ikon
+- Nama turnamen otomatis tampil di bracket, overlay, dan sertifikat
+
 ## Optimalisasi (v1.8)
 Pengaturan → **Performa & Diagnostik**: mode Otomatis/Hemat/Maksimal menyesuaikan animasi, confetti, blur, dan ukuran gambar
 dengan RAM & prosesor HP. Overlay menyesuaikan rotasi layar, tablet, dan layar lipat. Error dicatat otomatis (bisa disalin)

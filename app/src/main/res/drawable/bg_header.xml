@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient android:startColor="?attr/blHeader1" android:endColor="?attr/blHeader2" android:angle="0"/>
-</shape>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item><shape android:shape="rectangle"><solid android:color="?attr/blHeader1"/></shape></item>
+    <item android:gravity="bottom"><shape android:shape="rectangle"><size android:height="1dp"/><solid android:color="?attr/blStroke"/></shape></item>
+</layer-list>

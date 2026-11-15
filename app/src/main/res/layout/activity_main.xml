@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -14,13 +13,13 @@
         android:gravity="center_vertical"
         android:paddingStart="16dp"
         android:paddingEnd="16dp"
-        android:paddingTop="14dp"
-        android:paddingBottom="14dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="12dp"
         android:background="@drawable/bg_header">
 
         <ImageView
-            android:layout_width="50dp"
-            android:layout_height="50dp"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
             android:src="@drawable/ic_logo"
             android:contentDescription="Bracket Live" />
 
@@ -34,71 +33,61 @@
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="horizontal">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="BRACKET"
                     android:textColor="@color/text"
-                    android:textSize="20sp"
-                    android:fontFamily="sans-serif-black"
-                    android:letterSpacing="0.06" />
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-condensed" />
 
                 <TextView
                     android:id="@+id/tvTitleLive"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="5dp"
+                    android:tag="skin:accent_text"
                     android:text="LIVE"
-                    android:textColor="?attr/blAccent1"
-                    android:textSize="20sp"
-                    android:fontFamily="sans-serif-black"
-                    android:letterSpacing="0.06" />
+                    android:textColor="@color/text"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:fontFamily="sans-serif-condensed" />
             </LinearLayout>
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:text="TOURNAMENT MANAGER"
-                android:textColor="@color/muted_light"
-                android:textSize="10sp"
-                android:textStyle="bold"
-                android:fontFamily="sans-serif-condensed"
-                android:letterSpacing="0.25" />
+                android:text="Manajer turnamen"
+                android:textColor="@color/muted"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <ImageView
             android:id="@+id/btnSettings"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:padding="10dp"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:padding="9dp"
             android:src="@drawable/ic_settings"
-            android:background="@drawable/bg_icon_btn"
+            android:background="@drawable/bg_chip"
             android:contentDescription="Pengaturan" />
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="2dp"
-        android:background="@drawable/bg_neon_line" />
-
-    <!-- Content -->
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:fillViewport="true">
+        android:overScrollMode="never">
 
         <LinearLayout
+            android:id="@+id/contentContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:id="@+id/contentContainer"
             android:orientation="vertical"
             android:animateLayoutChanges="true"
-            android:padding="14dp">
+            android:padding="16dp">
 
             <!-- Pengaturan turnamen -->
             <LinearLayout
@@ -106,7 +95,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:padding="16dp"
-                android:background="@drawable/bg_card_neon"
+                android:background="@drawable/bg_card"
                 android:layout_marginBottom="12dp">
 
                 <LinearLayout
@@ -119,38 +108,71 @@
                         style="@style/SectionLabel"
                         android:layout_width="0dp"
                         android:layout_weight="1"
-                        android:text="TURNAMEN" />
+                        android:text="Turnamen" />
 
                     <TextView
                         android:id="@+id/tvGameTag"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:paddingTop="5dp"
-                        android:paddingBottom="5dp"
-                        android:text="Pilih Game"
-                        android:textColor="@color/on_accent"
+                        android:paddingStart="10dp"
+                        android:paddingEnd="10dp"
+                        android:paddingTop="4dp"
+                        android:paddingBottom="4dp"
+                        android:tag="skin:chip_active"
+                        android:text="Pilih game"
+                        android:textColor="@color/text"
                         android:textSize="11sp"
-                        android:textStyle="bold"
-                        android:fontFamily="sans-serif-condensed"
-                        android:background="@drawable/bg_chip_active" />
+                        android:textStyle="bold" />
                 </LinearLayout>
+
+                <EditText
+                    android:id="@+id/etTournament"
+                    android:layout_width="match_parent"
+                    android:layout_height="46dp"
+                    android:layout_marginTop="10dp"
+                    android:paddingStart="14dp"
+                    android:paddingEnd="14dp"
+                    android:background="@drawable/bg_input"
+                    android:hint="Nama turnamen (tampil di atas bracket)"
+                    android:inputType="textCapWords"
+                    android:maxLines="1"
+                    android:singleLine="true"
+                    android:textColor="@color/text"
+                    android:textColorHint="@color/dim"
+                    android:textSize="14sp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
+                    android:layout_marginTop="12dp"
                     android:orientation="horizontal">
 
-                    <TextView android:id="@+id/btnGame" style="@style/SegBtn" android:text="Game" />
-                    <TextView android:id="@+id/btnMode" style="@style/SegBtn" android:text="Mode" android:layout_marginEnd="0dp" />
+                    <TextView
+                        android:id="@+id/btnGame"
+                        style="@style/SegBtn"
+                        android:drawableStart="@drawable/ic_ov_pad"
+                        android:drawableTint="@color/muted_light"
+                        android:drawablePadding="8dp"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:text="Game" />
+
+                    <TextView
+                        android:id="@+id/btnMode"
+                        style="@style/SegBtn"
+                        android:layout_marginEnd="0dp"
+                        android:drawableStart="@drawable/ic_ov_swords"
+                        android:drawableTint="@color/muted_light"
+                        android:drawablePadding="8dp"
+                        android:paddingStart="14dp"
+                        android:paddingEnd="14dp"
+                        android:text="Mode" />
                 </LinearLayout>
 
                 <TextView
                     style="@style/SectionLabel"
-                    android:layout_marginTop="14dp"
-                    android:text="JUMLAH SLOT" />
+                    android:layout_marginTop="16dp"
+                    android:text="Jumlah slot" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -165,8 +187,8 @@
 
                 <TextView
                     style="@style/SectionLabel"
-                    android:layout_marginTop="14dp"
-                    android:text="FORMAT MATCH" />
+                    android:layout_marginTop="16dp"
+                    android:text="Format match" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -186,14 +208,14 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp"
+                android:padding="14dp"
                 android:background="@drawable/bg_card"
                 android:layout_marginBottom="12dp">
 
                 <TextView
                     style="@style/SectionLabel"
                     android:layout_marginBottom="10dp"
-                    android:text="PILIH GAME" />
+                    android:text="Pilih game" />
 
                 <GridLayout
                     android:id="@+id/gridGames"
@@ -208,7 +230,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp"
+                android:padding="14dp"
                 android:background="@drawable/bg_card"
                 android:visibility="gone"
                 android:layout_marginBottom="12dp">
@@ -216,7 +238,7 @@
                 <TextView
                     style="@style/SectionLabel"
                     android:layout_marginBottom="10dp"
-                    android:text="PILIH MODE" />
+                    android:text="Pilih mode" />
 
                 <GridLayout
                     android:id="@+id/gridModes"
@@ -225,48 +247,55 @@
                     android:columnCount="2" />
             </LinearLayout>
 
-            <!-- Empty state -->
+            <!-- Kosong: sederhana dan jujur -->
             <LinearLayout
                 android:id="@+id/emptyState"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:gravity="center_horizontal"
-                android:paddingTop="22dp"
-                android:paddingBottom="22dp">
+                android:paddingTop="28dp"
+                android:paddingBottom="28dp">
 
-                <FrameLayout
-                    android:layout_width="132dp"
-                    android:layout_height="132dp"
-                    android:background="@drawable/bg_empty_ring">
-
-                    <ImageView
-                        android:layout_width="84dp"
-                        android:layout_height="84dp"
-                        android:layout_gravity="center"
-                        android:src="@drawable/ic_logo_mark"
-                        android:contentDescription="Bracket Live" />
-                </FrameLayout>
+                <ImageView
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:padding="12dp"
+                    android:src="@drawable/ic_ov_hex"
+                    android:tint="@color/muted"
+                    android:background="@drawable/bg_chip"
+                    android:contentDescription="Belum ada bracket" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:text="SIAP BERTANDING?"
+                    android:layout_marginTop="14dp"
+                    android:text="Belum ada bracket"
                     android:textColor="@color/text"
-                    android:textSize="16sp"
-                    android:fontFamily="sans-serif-black"
-                    android:letterSpacing="0.1" />
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:gravity="center"
-                    android:text="Pilih game &amp; mode untuk membuat bracket turnamen"
+                    android:text="Pilih game dan mode di atas, bracket langsung dibuat."
                     android:textColor="@color/muted"
                     android:textSize="12sp" />
             </LinearLayout>
+
+            <!-- Nama turnamen di atas bracket -->
+            <TextView
+                android:id="@+id/tvTournamentTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:textColor="@color/text"
+                android:textSize="22sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-condensed"
+                android:visibility="gone" />
 
             <!-- Team list (BR) -->
             <LinearLayout
@@ -293,7 +322,7 @@
                     android:paddingBottom="8dp" />
             </HorizontalScrollView>
 
-            <!-- Champion -->
+            <!-- Juara -->
             <LinearLayout
                 android:id="@+id/champBox"
                 android:layout_width="match_parent"
@@ -301,56 +330,53 @@
                 android:orientation="vertical"
                 android:gravity="center"
                 android:padding="20dp"
-                android:background="@drawable/bg_champ"
+                android:background="@drawable/bg_card"
                 android:visibility="gone"
                 android:layout_marginTop="12dp">
 
                 <TextView
                     style="@style/SectionLabel"
-                    android:textColor="@color/gold"
-                    android:text="🏆  JUARA" />
+                    android:text="Juara" />
 
                 <TextView
                     android:id="@+id/tvChampion"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="—"
-                    android:textColor="#FFFFFF"
-                    android:textSize="24sp"
+                    android:textColor="@color/gold"
+                    android:textSize="26sp"
                     android:textStyle="bold"
-                    android:layout_marginTop="6dp" />
+                    android:fontFamily="sans-serif-condensed"
+                    android:layout_marginTop="4dp" />
 
                 <TextView
                     android:id="@+id/btnCert"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
+                    android:layout_height="44dp"
                     android:layout_marginTop="14dp"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp"
-                    android:paddingTop="12dp"
-                    android:paddingBottom="12dp"
-                    android:text="Buat Sertifikat"
-                    android:textColor="#FFFFFF"
+                    android:gravity="center"
+                    android:paddingStart="22dp"
+                    android:paddingEnd="22dp"
+                    android:tag="skin:primary"
+                    android:text="Buat sertifikat"
+                    android:textColor="@color/text"
                     android:textStyle="bold"
-                    android:textSize="12sp"
-                    android:background="@drawable/bg_btn_primary"
+                    android:textSize="13sp"
                     android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#2C3A75" />
-
-    <!-- Bottom actions -->
+    <!-- Aksi bawah -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp"
-        android:background="#080C22">
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:paddingTop="10dp"
+        android:paddingBottom="10dp"
+        android:background="@drawable/bg_header">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -358,9 +384,9 @@
             android:orientation="horizontal">
 
             <TextView android:id="@+id/btnReset" style="@style/ActionBtn" android:text="Reset" android:background="@drawable/bg_btn_gray" android:textColor="@color/red"/>
-            <TextView android:id="@+id/btnFill" style="@style/ActionBtn" android:text="Contoh" android:background="@drawable/bg_btn_gray" android:textColor="@color/gold"/>
+            <TextView android:id="@+id/btnFill" style="@style/ActionBtn" android:text="Contoh" android:background="@drawable/bg_btn_gray" android:textColor="@color/muted_light"/>
             <TextView android:id="@+id/btnShuffle" style="@style/ActionBtn" android:text="Acak" android:background="@drawable/bg_btn_gray" android:textColor="@color/muted_light"/>
-            <TextView android:id="@+id/btnAdd" style="@style/ActionBtn" android:text="+ Tim" android:background="@drawable/bg_btn_primary" android:textColor="#FFFFFF" android:layout_marginEnd="0dp"/>
+            <TextView android:id="@+id/btnAdd" style="@style/ActionBtn" android:text="+ Tim" android:tag="skin:primary" android:textColor="@color/text" android:layout_marginEnd="0dp"/>
         </LinearLayout>
 
         <TextView
@@ -371,9 +397,6 @@
             android:text="Pilih game untuk mulai"
             android:textColor="@color/muted"
             android:textSize="11sp"
-            android:maxLines="2"
-            android:ellipsize="end"
             android:layout_marginTop="8dp" />
-
     </LinearLayout>
 </LinearLayout>

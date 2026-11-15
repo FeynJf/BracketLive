@@ -78,7 +78,9 @@ class CertificateActivity : BaseActivity() {
         val mode = BracketStore.mode?.name ?: ""
         data.name = BracketStore.champion() ?: ""
         data.championLogo = BracketStore.championLogo()
-        data.event = listOf(game, mode).filter { it.isNotBlank() }.joinToString(" · ")
+        val tournament = Prefs.tournamentName(this)
+        data.event = if (tournament.isNotBlank()) tournament
+        else listOf(game, mode).filter { it.isNotBlank() }.joinToString(" · ")
         data.date = SimpleDateFormat("d MMMM yyyy", Locale("id")).format(Date())
 
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
@@ -185,8 +187,7 @@ class CertificateActivity : BaseActivity() {
     private fun updateChips() {
         fun paint(list: List<TextView>, sel: Int) = list.forEachIndexed { i, b ->
             val on = sel == i
-            b.setBackgroundResource(if (on) R.drawable.bg_chip_active else R.drawable.bg_chip)
-            b.setTextColor(ContextCompat.getColor(this, if (on) R.color.on_accent else R.color.muted_light))
+            Skin.styleChoice(b, on)
         }
         paint(themeButtons, data.theme)
         paint(shapeButtons, data.shape)
@@ -197,7 +198,7 @@ class CertificateActivity : BaseActivity() {
             this.text = text
             setTextColor(ContextCompat.getColor(context, R.color.muted))
             textSize = 10f
-            letterSpacing = 0.15f
+            letterSpacing = 0.05f
             setTypeface(null, Typeface.BOLD)
             setPadding(dp(2), dp(14), 0, dp(6))
         })

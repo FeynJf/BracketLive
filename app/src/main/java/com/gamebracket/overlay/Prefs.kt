@@ -5,18 +5,32 @@ import android.content.Context
 /** Semua pengaturan aplikasi (SharedPreferences). */
 object Prefs {
     private fun sp(ctx: Context) = ctx.getSharedPreferences("bracketlive", Context.MODE_PRIVATE)
+    /** Naik tiap ada pengaturan berubah: layar yang sedang di belakang tahu harus menyegarkan diri. */
+    @Volatile var revision = 0
+        private set
+
     private fun int(ctx: Context, k: String, d: Int) = sp(ctx).getInt(k, d)
-    private fun putInt(ctx: Context, k: String, v: Int) { sp(ctx).edit().putInt(k, v).apply() }
+    private fun putInt(ctx: Context, k: String, v: Int) { sp(ctx).edit().putInt(k, v).apply(); revision++ }
     private fun bool(ctx: Context, k: String, d: Boolean) = sp(ctx).getBoolean(k, d)
-    private fun putBool(ctx: Context, k: String, v: Boolean) { sp(ctx).edit().putBoolean(k, v).apply() }
+    private fun putBool(ctx: Context, k: String, v: Boolean) { sp(ctx).edit().putBoolean(k, v).apply(); revision++ }
     private fun str(ctx: Context, k: String, d: String) = sp(ctx).getString(k, d) ?: d
-    private fun putStr(ctx: Context, k: String, v: String) { sp(ctx).edit().putString(k, v).apply() }
+    private fun putStr(ctx: Context, k: String, v: String) { sp(ctx).edit().putString(k, v).apply(); revision++ }
 
     // ── Tampilan ──
     fun themeBase(ctx: Context) = int(ctx, "theme_base", 0)
     fun setThemeBase(ctx: Context, v: Int) = putInt(ctx, "theme_base", v)
-    fun accent(ctx: Context) = int(ctx, "accent", 0)
-    fun setAccent(ctx: Context, v: Int) = putInt(ctx, "accent", v)
+    private val legacyAccents = intArrayOf(0xFF00E5FF.toInt(), 0xFFFF8A00.toInt(), 0xFF00E5A0.toInt(), 0xFFFFC83D.toInt(), 0xFFB388FF.toInt(), 0xFF4DB8FF.toInt())
+
+    /** Warna aksen bebas (ARGB). Pengguna lama mempertahankan pilihan presetnya; pengguna baru dapat Vermilion. */
+    fun accentColor(ctx: Context): Int {
+        val p = sp(ctx)
+        return when {
+            p.contains("accent_color") -> p.getInt("accent_color", 0xFFFF5C39.toInt())
+            p.contains("accent") -> legacyAccents[p.getInt("accent", 0).coerceIn(0, legacyAccents.size - 1)]
+            else -> 0xFFFF5C39.toInt()
+        }
+    }
+    fun setAccentColor(ctx: Context, v: Int) = putInt(ctx, "accent_color", v or 0xFF000000.toInt())
     fun animations(ctx: Context) = bool(ctx, "animations", true)
     fun setAnimations(ctx: Context, v: Boolean) = putBool(ctx, "animations", v)
 
@@ -35,6 +49,8 @@ object Prefs {
     fun holdMs(ctx: Context): Int = int(ctx, "hold_ms", 700).coerceIn(300, 1500)
     fun setHoldMs(ctx: Context, v: Int) = putInt(ctx, "hold_ms", v.coerceIn(300, 1500))
     // Desain & ukuran PANEL overlay (terpisah dari ikon)
+    fun panelBlur(ctx: Context) = bool(ctx, "panel_blur", false)
+    fun setPanelBlur(ctx: Context, v: Boolean) = putBool(ctx, "panel_blur", v)
     fun panelStyle(ctx: Context) = int(ctx, "panel_style", 0)
     fun setPanelStyle(ctx: Context, v: Int) = putInt(ctx, "panel_style", v)
     /** Sudut membulat panel, dp (0..32). */
@@ -61,6 +77,13 @@ object Prefs {
     fun setBubbleCustom(ctx: Context, v: String?) { sp(ctx).edit().putString("bubble_custom", v).apply() }
 
     // ── Turnamen ──
+    /** Nama turnamen: tampil di atas bracket (aplikasi) dan di panel overlay. */
+    fun tournamentName(ctx: Context) = str(ctx, "tournament_name", "")
+    fun setTournamentName(ctx: Context, v: String) = putStr(ctx, "tournament_name", v.trim())
+    /** Ukuran bracket penuh terakhir (dipulihkan saat mode "langsung semifinal" dimatikan). */
+    fun fullBracketSize(ctx: Context) = int(ctx, "full_bracket_size", 8)
+    fun setFullBracketSize(ctx: Context, v: Int) = putInt(ctx, "full_bracket_size", v)
+
     /** true = bracket langsung mulai dari semifinal (4 tim). */
     fun semifinalOnly(ctx: Context) = bool(ctx, "semifinal_only", false)
     fun setSemifinalOnly(ctx: Context, v: Boolean) = putBool(ctx, "semifinal_only", v)

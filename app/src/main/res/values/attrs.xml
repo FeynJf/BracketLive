@@ -8,12 +8,4 @@
     <attr name="blSurface2" format="color"/>
     <attr name="blSurface3" format="color"/>
     <attr name="blStroke" format="color"/>
-    <attr name="blAccent1" format="color"/>
-    <attr name="blAccent2" format="color"/>
-    <attr name="blAccent3" format="color"/>
-    <attr name="blAccent1B" format="color"/>
-    <attr name="blAccent1A" format="color"/>
-    <attr name="blAccent2A" format="color"/>
-    <attr name="blAccent1S" format="color"/>
-    <attr name="blAccent2S" format="color"/>
 </resources>

@@ -63,7 +63,7 @@ object BracketUi {
                 text = BracketStore.roundName(r)
                 setTextColor(accent)
                 textSize = 9.5f
-                letterSpacing = 0.12f
+                letterSpacing = 0.04f
                 gravity = Gravity.CENTER
                 setTypeface(null, Typeface.BOLD)
                 setBackgroundResource(cfg.chipBg)
@@ -175,10 +175,10 @@ object BracketUi {
             row.addView(TextView(ctx).apply {
                 text = "${sc[s]}"
                 gravity = Gravity.CENTER
-                setTextColor(if (isWin) Color.WHITE else col(R.color.muted_light))
+                setTextColor(if (isWin) Skin.onAccent(ctx) else col(R.color.muted_light))
                 textSize = 12f
                 setTypeface(null, Typeface.BOLD)
-                setBackgroundResource(if (isWin) R.drawable.bg_btn_primary else cfg.chipBg)
+                if (isWin) background = Skin.primary(ctx) else setBackgroundResource(cfg.chipBg)
                 layoutParams = LinearLayout.LayoutParams(dp(32), dp(26)).apply { marginStart = dp(4); marginEnd = dp(6) }
                 val pk = "r${r}m${m}s$s"
                 setOnClickListener { popKey = pk; onWin(BracketStore.registerWin(r, m, s)) }

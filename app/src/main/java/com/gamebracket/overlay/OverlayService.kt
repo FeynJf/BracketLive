@@ -29,9 +29,7 @@ import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.graphics.drawable.GradientDrawable
 import android.view.HapticFeedbackConstants
-import android.view.animation.DecelerateInterpolator
 import android.view.animation.LinearInterpolator
-import android.view.animation.OvershootInterpolator
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.EditText
@@ -196,6 +194,7 @@ class OverlayService : Service() {
     private fun showOverlay() {
         val v = LayoutInflater.from(ui).inflate(R.layout.overlay_bracket, null)
         root = v
+        Skin.apply(v)
         bubble = v.findViewById(R.id.bubble)
         bubbleIcon = v.findViewById(R.id.bubbleCore)
         holdRing = v.findViewById(R.id.holdRing)
@@ -258,6 +257,7 @@ class OverlayService : Service() {
         val r = root ?: return
         scale = Prefs.overlayScale(this) / 100f
         ui = ThemeManager.themedContext(this)
+        Skin.apply(r)
 
         val outer = dp((54 * scale).toInt())
         val core = dp((44 * scale).toInt())
@@ -321,12 +321,12 @@ class OverlayService : Service() {
         updateWindow()
         // animasi buka: muncul dari atas sambil membesar
         panel.alpha = 0f
-        panel.scaleX = 0.88f
-        panel.scaleY = 0.88f
+        panel.scaleX = 0.95f
+        panel.scaleY = 0.95f
         panel.pivotX = panelW / 2f
         panel.pivotY = 0f
         panel.animate().alpha(1f).scaleX(1f).scaleY(1f)
-            .setDuration(240).setInterpolator(DecelerateInterpolator(1.6f)).start()
+            .setDuration(240).setInterpolator(Ease.decel).start()
     }
 
     private fun collapse(animated: Boolean = true) {
@@ -351,7 +351,7 @@ class OverlayService : Service() {
                 bubbleIcon.scaleX = 0.5f
                 bubbleIcon.scaleY = 0.5f
                 bubbleIcon.animate().scaleX(1f).scaleY(1f)
-                    .setDuration(300).setInterpolator(OvershootInterpolator(2.5f)).start()
+                    .setDuration(300).setInterpolator(Ease.spring).start()
             }
         }
         if (animated) {
@@ -365,7 +365,7 @@ class OverlayService : Service() {
     /** Flag jendela saat panel terbuka (+ blur latar untuk desain "Kaca Blur", Android 12+). */
     private fun panelFlags(): Int {
         var f = flagsPanel
-        if (Prefs.panelStyle(this) == PanelDesign.BLUR && DeviceProfile.allowBlur(this) &&
+        if (Prefs.panelBlur(this) && DeviceProfile.allowBlur(this) &&
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && wm.isCrossWindowBlurEnabled) {
             f = f or WindowManager.LayoutParams.FLAG_BLUR_BEHIND
             params.blurBehindRadius = dp(24)
@@ -434,12 +434,12 @@ class OverlayService : Service() {
 
     private fun pressDown() {
         bubbleIcon.animate().scaleX(0.9f).scaleY(0.9f)
-            .setDuration(120).setInterpolator(DecelerateInterpolator()).start()
+            .setDuration(120).setInterpolator(Ease.decel).start()
     }
 
     private fun pressUp() {
         bubbleIcon.animate().scaleX(1f).scaleY(1f)
-            .setDuration(260).setInterpolator(OvershootInterpolator(3f)).start()
+            .setDuration(260).setInterpolator(Ease.spring).start()
     }
 
     private fun startHold() {
@@ -607,7 +607,9 @@ class OverlayService : Service() {
         hScroll?.let { savedScrollX = it.scrollX }
         hScroll = null
         content.removeAllViews()
-        tvGame.text = BracketStore.gameId?.let { BracketStore.games[it]?.first } ?: "Belum ada game"
+        val tournament = Prefs.tournamentName(this)
+        val gameName = BracketStore.gameId?.let { BracketStore.games[it]?.first } ?: "Belum ada game"
+        tvGame.text = if (tournament.isNotBlank()) tournament else gameName
         val mode = BracketStore.mode
         if (mode == null) {
             content.addView(label("Belum ada mode aktif.\nBuka aplikasi lalu pilih game & mode.", 12f, R.color.muted, false).apply {
@@ -616,9 +618,16 @@ class OverlayService : Service() {
             })
         } else {
             val info = if (mode.type == "br") mode.name else "${mode.name} · BO${BracketStore.boFormat}"
-            content.addView(label(info.uppercase(), 9f, R.color.muted, true).apply {
-                letterSpacing = 0.1f
-                setPadding(dp(2), 0, 0, dp(6))
+            if (tournament.isNotBlank()) {
+                // nama turnamen ditulis di atas bracket
+                content.addView(label(tournament, 16f, R.color.text, true).apply {
+                    typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
+                    maxLines = 2
+                    setPadding(dp(2), 0, 0, dp(2))
+                })
+            }
+            content.addView(label("$gameName · $info", 10f, R.color.muted_light, false).apply {
+                setPadding(dp(2), 0, 0, dp(8))
             })
             if (mode.type == "br") renderTeams() else renderBracket()
         }
@@ -756,7 +765,7 @@ class OverlayService : Service() {
 
     private fun squareButton(text: String, primary: Boolean, onClick: () -> Unit) = label(text, 16f, R.color.text, true).apply {
         gravity = Gravity.CENTER
-        setBackgroundResource(if (primary) R.drawable.bg_btn_primary else R.drawable.bg_ov_chip)
+        if (primary) { background = Skin.primary(ui) } else setBackgroundResource(R.drawable.bg_ov_chip)
         layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
         setOnClickListener { onClick() }
     }

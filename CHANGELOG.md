@@ -2,6 +2,16 @@
 
 Bagian paling atas di bawah ini otomatis tampil di aplikasi (Pengaturan → Cek Update) saat ada update.
 
+## v1.9 — Rilis final: desain baru, 35 panel, warna bebas
+- Tampilan dirombak total: lebih rapi dan tegas, tanpa emoji dan efek neon berlebihan, ikon konsisten
+- Tema UI jadi 25 pilihan, warna aksen bebas (16,7 juta warna) dengan pemilih warna dan kode hex
+- 35 bentuk panel overlay yang benar-benar berbeda (sudut potong, tiket, tab, braket HUD, bevel, pixel, dll)
+- 66 desain tombol (11 bentuk x 6 gaya) dan 44 ikon, dipilih lewat galeri
+- Nama turnamen tampil otomatis di atas bracket, di panel overlay, dan di sertifikat
+- Pengaturan turnamen langsung berlaku: format bracket (penuh / langsung semifinal) kembali ke ukuran semula, poin kill dan posisi menghitung ulang skor
+- Animasi lebih halus dan natural: kurva gerak standar, tanpa pantulan berlebihan
+- Nama versi rilis kini jelas (1.9), bukan lagi 3.1.xxx
+
 ## v1.8 — Optimalisasi, download premium, CRF 2 anggota
 - 10 desain panel overlay baru (total 23): Karbon, Hologram, Sunset, Samudra, Sakura, Matrix, Es Kristal, Lava, Neon Tebal, Pixel Retro
 - Dialog update & download baru bergaya premium: progres neon, kecepatan & ukuran unduhan, tombol Batalkan dan Coba Lagi

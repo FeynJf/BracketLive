@@ -14,6 +14,12 @@ open class BaseActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
     }
 
+    /** Setelah layout dipasang: warnai view bertag "skin:..." dengan warna aksen pilihan. */
+    override fun onContentChanged() {
+        super.onContentChanged()
+        Skin.apply(window.decorView)
+    }
+
     override fun onStart() {
         super.onStart()
         AppVisibility.onStart()

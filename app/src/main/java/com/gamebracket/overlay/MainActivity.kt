@@ -7,8 +7,6 @@ import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
-import android.graphics.LinearGradient
-import android.graphics.Shader
 import android.graphics.Paint
 import android.graphics.Typeface
 import android.net.Uri
@@ -75,7 +73,8 @@ class MainActivity : BaseActivity() {
     }
 
     private var lastChampion: String? = null
-    private var emptyFloat: android.animation.ObjectAnimator? = null
+    private var seenRev = -1
+    private lateinit var tvTournamentTitle: TextView
 
     companion object {
         private var lastUpdateCheck = 0L
@@ -109,16 +108,15 @@ class MainActivity : BaseActivity() {
         findViewById<View>(R.id.btnSettings).setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
-        // judul "LIVE" dengan gradien neon
-        val live = findViewById<TextView>(R.id.tvTitleLive)
-        live.post {
-            val w = live.paint.measureText(live.text.toString())
-            live.paint.shader = LinearGradient(
-                0f, 0f, w, 0f,
-                intArrayOf(ThemeManager.accent1(this), ThemeManager.accent2(this)), null, Shader.TileMode.CLAMP
-            )
-            live.invalidate()
-        }
+        // nama turnamen: tampil di atas bracket
+        tvTournamentTitle = findViewById(R.id.tvTournamentTitle)
+        val etTournament = findViewById<EditText>(R.id.etTournament)
+        etTournament.setText(Prefs.tournamentName(this))
+        etTournament.addTextChangedListener(simpleWatcher {
+            Prefs.setTournamentName(this, it)
+            updateTournamentTitle()
+        })
+        updateTournamentTitle()
         setupToolbar()
         setupGames()
         findViewById<TextView>(R.id.btnReset).setOnClickListener { resetAll() }
@@ -160,17 +158,12 @@ class MainActivity : BaseActivity() {
     override fun onStart() {
         super.onStart()
         LiveFeed.setListener("main") { changed -> runOnUiThread { onFeedUpdate(changed) } }
-        // logo di layar kosong melayang pelan (dibatalkan saat layar tidak terlihat → hemat baterai)
-        if (emptyState.visibility == View.VISIBLE && emptyFloat == null) {
-            (emptyState as? ViewGroup)?.getChildAt(0)?.let { emptyFloat = Anim.floatLoop(it) }
-        }
+
     }
 
     override fun onStop() {
         LiveFeed.setListener("main", null)
-        emptyFloat?.cancel()
-        emptyFloat = null
-        (emptyState as? ViewGroup)?.getChildAt(0)?.translationY = 0f
+
         super.onStop()
     }
 
@@ -203,18 +196,44 @@ class MainActivity : BaseActivity() {
             lastUpdateCheck = now
             updater.check(false)
         }
-        // "Langsung semifinal" diaktifkan di Pengaturan → bracket menyesuaikan jadi 4 tim
-        val cur = BracketStore.mode
-        if (cur != null && cur.type != "br" && Prefs.semifinalOnly(this) && BracketStore.size != 4) {
-            BracketStore.size = 4
-            BracketStore.resetMatches()
-            BracketStore.ensurePlayers()
-            applyModeUi(cur)
-            return
+        if (seenRev != Prefs.revision) {
+            syncFromSettings()
+            seenRev = Prefs.revision
         }
         updateSizeChips()
         // Data bisa berubah dari overlay → segarkan tampilan
         refreshFromStore()
+    }
+
+    /** Pengaturan berubah (nama turnamen, format bracket, aturan poin): terapkan langsung ke tampilan. */
+    private fun syncFromSettings() {
+        val et = findViewById<EditText>(R.id.etTournament)
+        val name = Prefs.tournamentName(this)
+        if (et.text.toString() != name && !et.hasFocus()) et.setText(name)
+        updateTournamentTitle()
+
+        val m = BracketStore.mode ?: return
+        if (m.type == "br") return
+        val semi = Prefs.semifinalOnly(this)
+        val target = when {
+            semi -> 4
+            BracketStore.size == 4 && Prefs.fullBracketSize(this) != 4 -> Prefs.fullBracketSize(this)
+            else -> BracketStore.size
+        }
+        if (target != BracketStore.size) {
+            BracketStore.size = target
+            BracketStore.resetMatches()
+            BracketStore.ensurePlayers()
+            applyModeUi(m)
+            status(if (semi) "Langsung semifinal: 4 tim" else "Eliminasi penuh: $target tim")
+        }
+    }
+
+    private fun updateTournamentTitle() {
+        val name = Prefs.tournamentName(this)
+        val show = name.isNotBlank() && emptyState.visibility != View.VISIBLE
+        tvTournamentTitle.text = name
+        tvTournamentTitle.visibility = if (show) View.VISIBLE else View.GONE
     }
 
     // ───────────────────────── Setup ─────────────────────────
@@ -259,10 +278,7 @@ class MainActivity : BaseActivity() {
         Anim.pressable(this)
     }
 
-    private fun styleChoice(tv: TextView, active: Boolean) {
-        tv.setBackgroundResource(if (active) R.drawable.bg_chip_active else R.drawable.bg_chip)
-        tv.setTextColor(col(if (active) R.color.on_accent else R.color.muted_light))
-    }
+    private fun styleChoice(tv: TextView, active: Boolean) = Skin.styleChoice(tv, active)
 
     private fun setupGames() {
         gridGames.removeAllViews()
@@ -310,8 +326,6 @@ class MainActivity : BaseActivity() {
         emptyState.visibility = View.GONE
         panelMode.visibility = View.GONE
         modeButtons.forEach { (k, v) -> styleChoice(v, k == mode.id) }
-        emptyFloat?.cancel()
-        emptyFloat = null
         if (mode.type == "br") {
             // mode dengan jumlah tim tetap (CRF = 8 tim)
             if (mode.teams > 0) {
@@ -336,6 +350,7 @@ class MainActivity : BaseActivity() {
             renderBracket()
         }
         champBox.visibility = View.VISIBLE
+        updateTournamentTitle()
         updateChampion()
         Anim.reveal(if (mode.type == "br") teamList else bracketScroll)
     }
@@ -359,6 +374,7 @@ class MainActivity : BaseActivity() {
             return
         }
         BracketStore.size = n
+        if (BracketStore.mode?.type != "br") Prefs.setFullBracketSize(this, n)
         BracketStore.resetMatches()
         updateSizeChips()
         BracketStore.mode?.let { selectMode(it) } ?: status("Ukuran $n")
@@ -403,7 +419,7 @@ class MainActivity : BaseActivity() {
             val rosterSize = BracketStore.mode?.members ?: 0
             if (rosterSize > 0) {
                 btnRoster.visibility = View.VISIBLE
-                btnRoster.text = "👥 ${team.members.count { it.isNotBlank() }}/$rosterSize"
+                btnRoster.text = "${team.members.count { it.isNotBlank() }}/$rosterSize"
                 btnRoster.setOnClickListener {
                     RosterDialog.show(this, "Anggota ${team.name}", rosterSize, team.members) { list ->
                         BracketStore.teams[idx].members = list.toMutableList()
@@ -553,7 +569,7 @@ class MainActivity : BaseActivity() {
     private fun showPendingCrash() {
         val report = CrashLog.pendingFatal(this) ?: return
         window.decorView.post {
-            val d = PremiumDialog(this).title("APLIKASI SEMPAT BERHENTI", "MAAF, ADA KESALAHAN")
+            val d = PremiumDialog(this).title("Aplikasi sempat berhenti", "Maaf, ada kesalahan")
             d.message("Bracket Live sempat berhenti tak terduga, jadi data turnamen yang belum selesai mungkin hilang. Laporan teknis sudah disimpan. Kirim ke pengembang kalau masalahnya berulang.")
             d.body.addView(TextView(this).apply {
                 text = report.lines().take(6).joinToString("\n")

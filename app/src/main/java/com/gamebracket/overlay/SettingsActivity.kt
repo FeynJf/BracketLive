@@ -51,7 +51,6 @@ class SettingsActivity : BaseActivity() {
     private var dotOverlay: View? = null
     private var switchOverlay: SwitchCompat? = null
     private var previewHolder: FrameLayout? = null
-    private var tilesHolder: LinearLayout? = null
 
     private var suppressSwitch = false
     private var pendingOverlay = false
@@ -112,39 +111,67 @@ class SettingsActivity : BaseActivity() {
 
     // ───────────────────────── Bagian: Tampilan ─────────────────────────
 
-    private fun buildAppearance() {
-        val c = card("TAMPILAN", neon = true, summary = "Tema, warna aksen, animasi")
+    private fun accentHex() = "#%06X".format(Prefs.accentColor(this) and 0xFFFFFF)
 
-        label(c, "TEMA UI")
-        chips(c, ThemeManager.baseNames, Prefs.themeBase(this)) { i ->
-            Prefs.setThemeBase(this, i)
-            recreate()
+    private fun buildAppearance() {
+        val c = card("Tampilan", summary = "${ThemeManager.baseNames[Prefs.themeBase(this)]} · aksen ${accentHex()}", open = true)
+
+        label(c, "Tema UI (${ThemeManager.baseNames.size} pilihan)")
+        val themeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
+        themeRow.addView(Pickers.themeTile(this, Prefs.themeBase(this), false).apply { layoutParams = LinearLayout.LayoutParams(dp(110), ViewGroup.LayoutParams.WRAP_CONTENT) })
+        themeRow.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) }
+            addView(tv(ThemeManager.baseNames[Prefs.themeBase(this@SettingsActivity)], 14f, R.color.text, true))
+            addView(tv("Warna latar dan permukaan seluruh aplikasi", 11f, R.color.muted, false))
+        })
+        c.addView(themeRow)
+        button(c, "Pilih tema") {
+            Pickers.grid(this, "Tema UI", "${ThemeManager.baseNames.size} WARNA DASAR", ThemeManager.baseNames.size,
+                Prefs.themeBase(this), 3, { i, sel -> Pickers.themeTile(this, i, sel) }) { i ->
+                Prefs.setThemeBase(this, i)
+                recreate()
+            }
         }
 
-        label(c, "WARNA AKSEN")
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
-        val selected = Prefs.accent(this)
-        ThemeManager.accentPreview.forEachIndexed { i, cols ->
-            val dot = View(this).apply {
-                background = android.graphics.drawable.GradientDrawable(
-                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR, cols
-                ).apply {
+        divider(c)
+        label(c, "Warna aksen")
+        val accRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
+        accRow.addView(View(this).apply {
+            background = Skin.rect(this@SettingsActivity, Prefs.accentColor(this@SettingsActivity), 10f)
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
+        })
+        accRow.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) }
+            addView(tv(accentHex(), 14f, R.color.text, true).apply { typeface = Typeface.MONOSPACE })
+            addView(tv("Bebas pilih warna apa pun (16,7 juta)", 11f, R.color.muted, false))
+        })
+        c.addView(accRow)
+        // pilihan cepat
+        val swatches = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(10), 0, 0) }
+        ThemeManager.accentPresets.forEach { (name, col) ->
+            swatches.addView(View(this).apply {
+                background = android.graphics.drawable.GradientDrawable().apply {
                     shape = android.graphics.drawable.GradientDrawable.OVAL
-                    if (i == selected) setStroke(dp(3), ContextCompat.getColor(this@SettingsActivity, R.color.text))
+                    setColor(col)
+                    if (col == Prefs.accentColor(this@SettingsActivity)) setStroke(dp(3), ContextCompat.getColor(this@SettingsActivity, R.color.text))
+                    else setStroke(dp(1), 0x33FFFFFF)
                 }
-                layoutParams = LinearLayout.LayoutParams(dp(38), dp(38)).apply { marginEnd = dp(10) }
-                contentDescription = ThemeManager.accentNames[i]
+                contentDescription = name
+                layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).apply { marginEnd = dp(9) }
                 setOnClickListener {
-                    Prefs.setAccent(this@SettingsActivity, i)
+                    Prefs.setAccentColor(this@SettingsActivity, col)
+                    OverlayService.onSettingsChanged?.invoke()
                     recreate()
                 }
-            }
-            row.addView(dot)
+            })
         }
-        c.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) })
-        hint(c, "${ThemeManager.baseNames[Prefs.themeBase(this)]} · ${ThemeManager.accentNames[selected]}")
+        c.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(swatches) })
+        button(c, "Pilih warna sendiri") { Pickers.accentDialog(this) { OverlayService.onSettingsChanged?.invoke(); recreate() } }
 
-        switchRow(c, "Animasi", "Transisi, efek tekan, confetti saat juara", Prefs.animations(this)) {
+        divider(c)
+        switchRow(c, "Animasi", "Transisi halus di seluruh aplikasi", Prefs.animations(this)) {
             Prefs.setAnimations(this, it)
         }
     }
@@ -152,7 +179,7 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Overlay ─────────────────────────
 
     private fun buildOverlay() {
-        val c = card("OVERLAY LIVE", summary = "Aktifkan overlay, tahan untuk membuka", open = true)
+        val c = card("Overlay live", summary = "Aktifkan overlay, tahan untuk membuka", open = true)
 
         // toggle
         val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
@@ -163,8 +190,8 @@ class SettingsActivity : BaseActivity() {
         texts.addView(tv("Ikon melayang setelah kamu keluar dari app", 11f, R.color.muted, false))
         switchOverlay = SwitchCompat(this).apply {
             minimumHeight = dp(44)
-            thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)
-            trackTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_track)
+            thumbTintList = Skin.switchThumb(this@SettingsActivity)
+            trackTintList = Skin.switchTrack(this@SettingsActivity)
             setOnCheckedChangeListener { _, checked ->
                 if (suppressSwitch) return@setOnCheckedChangeListener
                 if (checked) startOverlay() else stopOverlay()
@@ -175,7 +202,7 @@ class SettingsActivity : BaseActivity() {
         setOverlaySwitch(OverlayService.isRunning)
         divider(c)
 
-        slider(c, "TAHAN IKON UNTUK MEMBUKA", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
+        slider(c, "Tahan ikon untuk membuka", 300, 1500, Prefs.holdMs(this), { String.format(Locale("id"), "%.1f dtk", it / 1000.0) }, step = 100) {
             Prefs.setHoldMs(this, it)
         }
         hint(c, "Ikon harus ditahan supaya panel tidak terbuka tak sengaja saat kamu live.")
@@ -183,12 +210,12 @@ class SettingsActivity : BaseActivity() {
 
     // ───────────────────────── Bagian: Desain overlay (galeri) ─────────────────────────
 
-    private var galleryHolder: LinearLayout? = null
+    private var designRows: LinearLayout? = null
 
     private fun buildDesign() {
-        val c = card("DESAIN OVERLAY", neon = true, summary = "Pilih tampilan panel, tombol, dan ikon", open = true)
+        val c = card("Desain overlay", summary = "35 bentuk panel · 66 desain tombol · 44 ikon", open = true)
 
-        label(c, "PRATINJAU IKON")
+        label(c, "Pratinjau tombol")
         previewHolder = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(96)).apply { topMargin = dp(8) }
             setBackgroundResource(R.drawable.bg_chip)
@@ -196,70 +223,109 @@ class SettingsActivity : BaseActivity() {
         c.addView(previewHolder)
         refreshPreview()
 
-        slider(c, "UKURAN IKON", 70, 150, Prefs.overlayScale(this), { "$it%" }) {
+        slider(c, "Ukuran ikon", 70, 150, Prefs.overlayScale(this), { "$it%" }) {
             Prefs.setOverlayScale(this, it)
             refreshPreview()
             OverlayService.onSettingsChanged?.invoke()
         }
 
-        label(c, "DESAIN PANEL (${PanelDesign.names.size} pilihan)")
-        galleryHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
-        c.addView(galleryHolder)
-        buildGallery()
+        designRows = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        c.addView(designRows)
+        buildDesignRows()
 
-        label(c, "DESAIN TOMBOL & IKON")
-        tilesHolder = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        c.addView(tilesHolder)
-        buildTiles()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            divider(c)
+            switchRow(c, "Blur latar panel", "Memburamkan layar di belakang panel (Android 12+, jika didukung perangkat)", Prefs.panelBlur(this)) {
+                Prefs.setPanelBlur(this, it)
+                panelChanged()
+            }
+        }
     }
 
-    /** Galeri pratinjau desain panel: tiap kartu menampilkan panel mini di atas latar warna-warni. */
-    private fun buildGallery() {
-        val h = galleryHolder ?: return
+    /** Tiga baris pilihan: desain panel, desain tombol, ikon. Tiap baris membuka dialog galeri. */
+    private fun buildDesignRows() {
+        val h = designRows ?: return
         h.removeAllViews()
         val ui = ThemeManager.themedContext(this)
-        val sel = Prefs.panelStyle(this)
-        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        PanelDesign.names.forEachIndexed { i, name ->
-            val thumb = FrameLayout(this).apply {
-                layoutParams = LinearLayout.LayoutParams(dp(92), dp(62))
-                background = android.graphics.drawable.GradientDrawable(
-                    android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
-                    intArrayOf(ThemeManager.accent2(ui), ThemeManager.accent3(ui), ThemeManager.accent1(ui))
-                ).apply { cornerRadius = dp(10).toFloat() }
+        val custom = Prefs.bubbleCustom(this)
+
+        fun row(label: String, name: String, count: Int, preview: View, onOpen: () -> Unit) {
+            val r = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(14), 0, 0)
             }
-            thumb.addView(TextView(this).apply {
-                text = "BRACKET\nTim 1    0"
-                textSize = 8f
-                setTextColor(android.graphics.Color.WHITE)
-                setPadding(dp(8), dp(6), dp(8), dp(6))
-                background = PanelDesign.background(ui, i, 10, Prefs.panelOpacity(this@SettingsActivity))
-            }, FrameLayout.LayoutParams(dp(74), dp(46), Gravity.CENTER))
-            val cell = LinearLayout(this).apply {
+            r.addView(preview)
+            r.addView(LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                gravity = Gravity.CENTER_HORIZONTAL
-                setPadding(dp(4), dp(4), dp(4), dp(4))
-                setBackgroundResource(if (i == sel) R.drawable.bg_chip_active else R.drawable.bg_chip)
-                layoutParams = LinearLayout.LayoutParams(dp(100), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(8) }
-                contentDescription = name
-                setOnClickListener {
-                    Prefs.setPanelStyle(this@SettingsActivity, i)
-                    buildGallery()
-                    panelChanged()
+                layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) }
+                addView(TextView(this@SettingsActivity, null, 0, R.style.SectionLabel).apply { text = label })
+                addView(tv(name, 14f, R.color.text, true))
+            })
+            r.addView(TextView(this).apply {
+                text = "Pilih ($count)"
+                gravity = Gravity.CENTER
+                textSize = 12f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.muted_light))
+                setPadding(dp(14), 0, dp(14), 0)
+                background = Skin.chip(this@SettingsActivity)
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38))
+                setOnClickListener { onOpen() }
+            })
+            h.addView(r)
+        }
+
+        // desain panel
+        val panelPrev = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(64), dp(44))
+            background = android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TL_BR,
+                intArrayOf(ThemeManager.accent2(ui), ThemeManager.accent3(ui), ThemeManager.accent1(ui))
+            ).apply { cornerRadius = dp(8).toFloat() }
+        }
+        panelPrev.addView(View(this).apply { background = PanelDesign.background(ui, Prefs.panelStyle(this@SettingsActivity), 8, 85) },
+            FrameLayout.LayoutParams(dp(46), dp(30), Gravity.CENTER))
+        row("Desain panel", PanelDesign.names[Prefs.panelStyle(this).coerceIn(0, PanelDesign.names.size - 1)], PanelDesign.names.size, panelPrev) {
+            Pickers.grid(this, "Desain panel", "${PanelDesign.names.size} BENTUK BERBEDA", PanelDesign.names.size, Prefs.panelStyle(this), 3,
+                { i, sel -> Pickers.panelTile(this, i, sel) }) { i ->
+                Prefs.setPanelStyle(this, i)
+                buildDesignRows()
+                panelChanged()
+            }
+        }
+
+        // desain tombol
+        val bubPrev = ImageView(this).apply {
+            setImageDrawable(BubbleFactory.background(ui, Prefs.bubbleStyle(this@SettingsActivity), dp(44)))
+            layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(10); marginEnd = dp(10) }
+        }
+        row("Desain tombol", BubbleFactory.styleNames[Prefs.bubbleStyle(this).coerceIn(0, BubbleFactory.styleNames.size - 1)], BubbleFactory.styleNames.size, bubPrev) {
+            Pickers.grid(this, "Desain tombol", "${BubbleFactory.styleNames.size} DESAIN BERBEDA", BubbleFactory.styleNames.size, Prefs.bubbleStyle(this), 4,
+                { i, sel -> Pickers.bubbleTile(this, i, sel) }) { i ->
+                Prefs.setBubbleStyle(this, i)
+                overlayLookChanged()
+            }
+        }
+
+        // ikon
+        val iconPrev = FrameLayout(this).apply { layoutParams = LinearLayout.LayoutParams(dp(64), dp(44)) }
+        val glyph = ImageView(this)
+        val idx = Prefs.bubbleIcon(this).coerceIn(0, BubbleFactory.iconNames.size - 1)
+        BubbleFactory.applyIcon(ui, glyph, idx, custom, dp(26))
+        iconPrev.addView(glyph, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
+        iconPrev.setBackgroundResource(R.drawable.bg_chip)
+        row("Ikon", BubbleFactory.iconNames[idx], BubbleFactory.iconNames.size - 1, iconPrev) {
+            Pickers.grid(this, "Ikon", "${BubbleFactory.iconNames.size - 1} GAMBAR + FOTO SENDIRI", BubbleFactory.iconNames.size, idx, 5,
+                { i, sel -> Pickers.iconTile(this, i, sel) }) { i ->
+                if (i == BubbleFactory.CUSTOM_ICON) {
+                    iconPicker.launch("image/*")
+                } else {
+                    Prefs.setBubbleIcon(this, i)
+                    overlayLookChanged()
                 }
             }
-            cell.addView(thumb)
-            cell.addView(tv(name, 10f, if (i == sel) R.color.on_accent else R.color.muted_light, true).apply {
-                gravity = Gravity.CENTER
-                maxLines = 1
-                setPadding(0, dp(4), 0, 0)
-            })
-            row.addView(cell)
         }
-        val hs = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) }
-        h.addView(hs)
-        Anim.pressAll(h)
-        if (sel > 2) hs.post { hs.scrollTo(((sel - 1) * dp(108)), 0) }
     }
 
     // ───────────────────────── Bagian: Ukuran & transparansi panel ─────────────────────────
@@ -272,10 +338,10 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun buildPanel() {
-        val c = card("UKURAN & TRANSPARANSI PANEL", summary = "Transparansi, sudut, lebar, tinggi, zoom")
+        val c = card("Ukuran & transparansi panel", summary = "Transparansi, sudut, lebar, tinggi, zoom")
         hint(c, "Panel adalah jendela bracket yang terbuka saat ikon ditahan. Ukurannya juga bisa diubah langsung dengan menggeser pojok kiri/kanan bawah panel.")
 
-        label(c, "PRATINJAU PANEL")
+        label(c, "Pratinjau panel")
         panelPreviewHolder = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(132)).apply { topMargin = dp(8) }
         }
@@ -283,19 +349,19 @@ class SettingsActivity : BaseActivity() {
         refreshPanelPreview()
 
         hint(c, "Desain panel dipilih di kartu DESAIN OVERLAY di atas.")
-        slider(c, "SUDUT MEMBULAT", 0, 32, Prefs.panelRadius(this), { "$it dp" }, step = 2) {
+        slider(c, "Sudut membulat", 0, 32, Prefs.panelRadius(this), { "$it dp" }, step = 2) {
             Prefs.setPanelRadius(this, it); panelChanged()
         }
-        slider(c, "TRANSPARANSI", 30, 100, Prefs.panelOpacity(this), { "$it%" }) {
+        slider(c, "Transparansi", 30, 100, Prefs.panelOpacity(this), { "$it%" }) {
             Prefs.setPanelOpacity(this, it); panelChanged()
         }
-        slider(c, "LEBAR PANEL", 55, 100, Prefs.panelWidthPct(this), { "$it%" }, step = 5) {
+        slider(c, "Lebar panel", 55, 100, Prefs.panelWidthPct(this), { "$it%" }, step = 5) {
             Prefs.setPanelWidthPct(this, it); panelChanged()
         }
-        slider(c, "TINGGI PANEL", 0, 85, Prefs.panelHeightPct(this), { if (it < 15) "Otomatis" else "$it%" }, step = 5) {
+        slider(c, "Tinggi panel", 0, 85, Prefs.panelHeightPct(this), { if (it < 15) "Otomatis" else "$it%" }, step = 5) {
             Prefs.setPanelHeightPct(this, it); panelChanged()
         }
-        slider(c, "ZOOM ISI PANEL", 70, 150, Prefs.panelZoom(this), { "$it%" }, step = 5) {
+        slider(c, "Zoom isi panel", 70, 150, Prefs.panelZoom(this), { "$it%" }, step = 5) {
             Prefs.setPanelZoom(this, it); panelChanged()
         }
         button(c, "Reset ukuran panel") {
@@ -331,70 +397,8 @@ class SettingsActivity : BaseActivity() {
         Anim.reveal(mini)
     }
 
-    /** Dua baris tile: desain tombol, lalu ikon. */
-    private fun buildTiles() {
-        val h = tilesHolder ?: return
-        h.removeAllViews()
-        val style = Prefs.bubbleStyle(this)
-        val icon = Prefs.bubbleIcon(this)
-        val custom = Prefs.bubbleCustom(this)
-        val ui = ThemeManager.themedContext(this)
-
-        h.addView(tv("Desain tombol", 11f, R.color.muted, false).apply { setPadding(0, dp(8), 0, dp(4)) })
-        val styleRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        BubbleFactory.styleNames.forEachIndexed { i, name ->
-            val img = ImageView(this).apply {
-                setImageDrawable(BubbleFactory.background(ui, i, dp(44)))
-                layoutParams = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER)
-            }
-            styleRow.addView(tile(img, i == style, name) {
-                Prefs.setBubbleStyle(this, i)
-                overlayLookChanged()
-            })
-        }
-        h.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(styleRow) })
-
-        h.addView(tv("Gambar ikon", 11f, R.color.muted, false).apply { setPadding(0, dp(10), 0, dp(4)) })
-        val iconRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        BubbleFactory.iconNames.forEachIndexed { i, name ->
-            val cell = FrameLayout(this).apply { layoutParams = FrameLayout.LayoutParams(dp(44), dp(44), Gravity.CENTER) }
-            cell.addView(ImageView(this).apply { setImageDrawable(BubbleFactory.background(ui, style, dp(44))) })
-            val glyph = ImageView(this).apply { layoutParams = FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER) }
-            if (i == BubbleFactory.CUSTOM_ICON) {
-                if (custom != null) BubbleFactory.applyIcon(ui, glyph, i, custom, dp(26))
-                else glyph.setImageResource(R.drawable.ic_ov_target)
-            } else {
-                BubbleFactory.applyIcon(ui, glyph, i, null, dp(26))
-            }
-            cell.addView(glyph)
-            iconRow.addView(tile(cell, i == icon, name) {
-                if (i == BubbleFactory.CUSTOM_ICON) {
-                    iconPicker.launch("image/*")
-                } else {
-                    Prefs.setBubbleIcon(this, i)
-                    overlayLookChanged()
-                }
-            })
-        }
-        h.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(iconRow) })
-        Anim.pressAll(h)
-    }
-
-    private fun tile(content: View, selected: Boolean, desc: String, onClick: () -> Unit): View {
-        val wrap = FrameLayout(this).apply {
-            setBackgroundResource(if (selected) R.drawable.bg_chip_active else R.drawable.bg_chip)
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            layoutParams = LinearLayout.LayoutParams(dp(54), dp(54)).apply { marginEnd = dp(8) }
-            contentDescription = desc
-            setOnClickListener { onClick() }
-        }
-        (content.parent as? ViewGroup)?.removeView(content)
-        wrap.addView(content)
-        return wrap
-    }
-
     private fun overlayLookChanged() {
-        buildTiles()
+        buildDesignRows()
         refreshPreview()
         OverlayService.onSettingsChanged?.invoke()
     }
@@ -421,30 +425,40 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Turnamen ─────────────────────────
 
     private fun buildTournament() {
-        val c = card("TURNAMEN", summary = "Format bracket, poin kill & posisi")
+        val c = card("Turnamen", summary = "Nama, format bracket, poin kill & posisi", open = true)
 
-        label(c, "FORMAT BRACKET")
-        chips(c, listOf("Eliminasi penuh", "Langsung Semifinal"), if (Prefs.semifinalOnly(this)) 1 else 0) { i ->
-            Prefs.setSemifinalOnly(this, i == 1)
+        label(c, "Nama turnamen")
+        field(c, Prefs.tournamentName(this), "Contoh: Liga Kampus 2026", InputType.TYPE_TEXT_FLAG_CAP_WORDS) {
+            Prefs.setTournamentName(this, it)
         }
-        hint(c, "Langsung Semifinal: 4 tim, babak pertama = semifinal lalu final. Berlaku untuk mode eliminasi.")
+        hint(c, "Ditulis otomatis di atas bracket dan di panel overlay.")
 
         divider(c)
-        label(c, "POIN PER KILL")
+        label(c, "Format bracket")
+        chips(c, listOf("Eliminasi penuh", "Langsung semifinal"), if (Prefs.semifinalOnly(this)) 1 else 0) { i ->
+            Prefs.setSemifinalOnly(this, i == 1)
+            Toast.makeText(this, if (i == 1) "Bracket berubah: semifinal → final (4 tim)" else "Bracket kembali ke eliminasi penuh", Toast.LENGTH_SHORT).show()
+        }
+        hint(c, "Langsung semifinal: 4 tim, babak pertama = semifinal lalu final. Berlaku untuk mode eliminasi dan langsung diterapkan di layar utama.")
+
+        divider(c)
+        label(c, "Poin per kill")
         field(c, Prefs.killPoint(this).toString(), "1", InputType.TYPE_CLASS_NUMBER) {
             Prefs.setKillPoint(this, it.toIntOrNull() ?: 1)
+            LiveFeed.recompute(this)
         }
-        label(c, "POIN POSISI (juara 1, 2, 3, … dipisah koma)")
+        label(c, "Poin posisi (juara 1, 2, 3, … dipisah koma)")
         field(c, Prefs.placementPoints(this), "12,9,8,7,6,5,4,3,2,1", InputType.TYPE_CLASS_TEXT) {
             Prefs.setPlacementPoints(this, it.ifBlank { "12,9,8,7,6,5,4,3,2,1" })
+            LiveFeed.recompute(this)
         }
-        hint(c, "Dipakai saat poin dihitung otomatis dari Koneksi Live. Poin tiap tim juga bisa diubah manual di layar utama.")
+        hint(c, "Aturan ini dipakai saat poin dihitung otomatis dari koneksi live; perubahan langsung menghitung ulang skor tim. Poin tim juga bisa diubah manual di layar utama.")
     }
 
     // ───────────────────────── Bagian: Koneksi Live ─────────────────────────
 
     private fun buildLive() {
-        val c = card("KONEKSI LIVE", summary = LiveFeed.status)
+        val c = card("Koneksi live", summary = LiveFeed.status)
         tvLiveSummary = lastSummary
         hint(c, "Pilih game yang terpasang di HP kamu lalu hubungkan. Bracket Live mendeteksi kapan game dibuka, dan overlay langsung tampil di atas game. Tidak perlu memasukkan link.")
 
@@ -501,12 +515,12 @@ class SettingsActivity : BaseActivity() {
             orientation = LinearLayout.VERTICAL
             visibility = if (hasFeed) View.VISIBLE else View.GONE
         }
-        val advHead = tv(if (hasFeed) "SUMBER DATA OTOMATIS (OPSIONAL)  ▴" else "SUMBER DATA OTOMATIS (OPSIONAL)  ▾", 11f, R.color.muted_light, true).apply {
+        val advHead = tv(if (hasFeed) "Sumber data otomatis (opsional)  ▴" else "Sumber data otomatis (opsional)  ▾", 11f, R.color.muted_light, true).apply {
             setPadding(0, dp(14), 0, dp(6))
             setOnClickListener {
                 val show = adv.visibility != View.VISIBLE
                 adv.visibility = if (show) View.VISIBLE else View.GONE
-                text = if (show) "SUMBER DATA OTOMATIS (OPSIONAL)  ▴" else "SUMBER DATA OTOMATIS (OPSIONAL)  ▾"
+                text = if (show) "Sumber data otomatis (opsional)  ▴" else "Sumber data otomatis (opsional)  ▾"
             }
         }
         c.addView(advHead)
@@ -516,7 +530,7 @@ class SettingsActivity : BaseActivity() {
         field(adv, Prefs.feedUrl(this), "https://contoh.com/room.json", InputType.TYPE_TEXT_VARIATION_URI) {
             Prefs.setFeedUrl(this, it.trim())
         }
-        slider(adv, "CEK ULANG TIAP", 5, 60, Prefs.feedInterval(this), { "$it dtk" }) {
+        slider(adv, "Cek ulang tiap", 5, 60, Prefs.feedInterval(this), { "$it dtk" }) {
             Prefs.setFeedInterval(this, it)
         }
         button(adv, "Tes koneksi feed") {
@@ -683,10 +697,10 @@ class SettingsActivity : BaseActivity() {
     // ───────────────────────── Bagian: Performa & diagnostik ─────────────────────────
 
     private fun buildPerformance() {
-        val c = card("PERFORMA & DIAGNOSTIK", summary = "Perangkat: ${DeviceProfile.tierName(this)} · animasi & overlay menyesuaikan")
+        val c = card("Performa & diagnostik", summary = "Perangkat: ${DeviceProfile.tierName(this)} · animasi & overlay menyesuaikan")
         hint(c, DeviceProfile.describe(this))
 
-        label(c, "MODE PERFORMA")
+        label(c, "Mode performa")
         chips(c, listOf("Otomatis", "Hemat", "Maksimal"), Prefs.perfMode(this)) { i ->
             Prefs.setPerfMode(this, i)
             Toast.makeText(this, "Mode performa: ${DeviceProfile.tierName(this)}", Toast.LENGTH_SHORT).show()
@@ -694,9 +708,9 @@ class SettingsActivity : BaseActivity() {
         hint(c, "Otomatis menyesuaikan RAM & prosesor. Hemat = animasi singkat, confetti ringan, tanpa blur (cocok untuk HP lawas). Maksimal = semua efek.")
 
         divider(c)
-        label(c, "CATATAN ERROR")
+        label(c, "Catatan error")
         val log = CrashLog.errors(this)
-        val logView = tv(log?.takeLast(700) ?: "Tidak ada error tercatat. 👍", 10f, if (log == null) R.color.green else R.color.muted_light, false).apply {
+        val logView = tv(log?.takeLast(700) ?: "Tidak ada error tercatat.", 10f, if (log == null) R.color.green else R.color.muted_light, false).apply {
             typeface = Typeface.MONOSPACE
             setPadding(dp(10), dp(8), dp(10), dp(8))
             setBackgroundResource(R.drawable.bg_chip)
@@ -716,14 +730,14 @@ class SettingsActivity : BaseActivity() {
         button(c, "Hapus catatan error") {
             CrashLog.clearErrors(this)
             CrashLog.clearFatal(this)
-            logView.text = "Tidak ada error tercatat. 👍"
+            logView.text = "Tidak ada error tercatat."
             logView.setTextColor(ContextCompat.getColor(this, R.color.green))
         }
 
         divider(c)
         button(c, "Reset semua pengaturan") {
             PremiumDialog.message(
-                this, "RESET PENGATURAN", "KEMBALI KE BAWAAN",
+                this, "Reset pengaturan", "Kembali ke bawaan",
                 "Semua pengaturan (tema, overlay, poin, koneksi live) dikembalikan ke bawaan. Data turnamen tidak dihapus. Lanjutkan?",
                 "Reset", "Batal",
                 onPositive = {
@@ -737,7 +751,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun buildUpdate() {
-        val c = card("UPDATE APLIKASI", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}", open = true)
+        val c = card("Update aplikasi", summary = "Versi ${updater.versionName()} · build ${updater.currentBuild()}", open = true)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f) }
         col.addView(tv("Versi ${updater.versionName()}  (build ${updater.currentBuild()})", 15f, R.color.text, true).apply { typeface = Typeface.create("sans-serif-condensed", Typeface.BOLD) })
@@ -751,7 +765,8 @@ class SettingsActivity : BaseActivity() {
             textSize = 12f
             setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
             setPadding(dp(18), 0, dp(18), 0)
-            setBackgroundResource(R.drawable.bg_btn_primary)
+            background = Skin.primary(this@SettingsActivity)
+            setTextColor(Skin.onAccent(this@SettingsActivity))
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40))
             setOnClickListener { updater.check(true) }
         })
@@ -779,7 +794,7 @@ class SettingsActivity : BaseActivity() {
     }
 
     private fun buildAbout() {
-        val c = card("TENTANG", plain = true, open = true)
+        val c = card("Tentang", plain = true, open = true)
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(10), 0, 0) }
         row.addView(ImageView(this).apply {
             setImageResource(R.drawable.ic_logo)
@@ -787,6 +802,7 @@ class SettingsActivity : BaseActivity() {
         })
         val col = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(12) } }
         col.addView(tv("Bracket Live", 14f, R.color.text, true))
+        col.addView(tv("Versi ${updater.versionName()} · build ${updater.currentBuild()}", 12f, R.color.muted_light, false))
         col.addView(tv("Bracket turnamen untuk live streaming", 11f, R.color.muted, false))
         row.addView(col)
         c.addView(row)
@@ -807,7 +823,7 @@ class SettingsActivity : BaseActivity() {
         if (!Settings.canDrawOverlays(this)) {
             setOverlaySwitch(false)
             PremiumDialog.message(
-                this, "IZIN OVERLAY", "DIPERLUKAN SEKALI SAJA",
+                this, "Izin overlay", "Diperlukan sekali saja",
                 "Aktifkan izin \"Tampil di atas aplikasi lain\" untuk Bracket Live, lalu kembali ke aplikasi ini. Overlay akan menyala otomatis.",
                 "Buka Settings", "Batal",
                 onPositive = {
@@ -846,7 +862,7 @@ class SettingsActivity : BaseActivity() {
     private fun card(title: String, neon: Boolean = false, plain: Boolean = false, summary: String? = null, open: Boolean = false): LinearLayout {
         val outer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundResource(if (neon) R.drawable.bg_card_neon else R.drawable.bg_card)
+            setBackgroundResource(R.drawable.bg_card)
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) }
         }
         val head = LinearLayout(this).apply {
@@ -898,7 +914,7 @@ class SettingsActivity : BaseActivity() {
         textSize = 13f
         setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
         setTextColor(if (primary) Color.WHITE else ContextCompat.getColor(this@SettingsActivity, R.color.muted_light))
-        setBackgroundResource(if (primary) R.drawable.bg_btn_primary else R.drawable.bg_btn_gray)
+        if (primary) { background = Skin.primary(this@SettingsActivity); setTextColor(Skin.onAccent(this@SettingsActivity)) } else setBackgroundResource(R.drawable.bg_btn_gray)
         setOnClickListener { onClick() }
     }
 
@@ -947,8 +963,8 @@ class SettingsActivity : BaseActivity() {
         col.addView(tv(sub, 11f, R.color.muted, false))
         val sw = SwitchCompat(this).apply {
             minimumHeight = dp(44)
-            thumbTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_thumb)
-            trackTintList = ContextCompat.getColorStateList(this@SettingsActivity, R.color.switch_track)
+            thumbTintList = Skin.switchThumb(this@SettingsActivity)
+            trackTintList = Skin.switchTrack(this@SettingsActivity)
             isChecked = checked
             setOnCheckedChangeListener { _, v -> onChange(v) }
         }
@@ -961,8 +977,7 @@ class SettingsActivity : BaseActivity() {
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(8), 0, 0) }
         val views = ArrayList<TextView>()
         fun paint(sel: Int) = views.forEachIndexed { i, v ->
-            v.setBackgroundResource(if (i == sel) R.drawable.bg_chip_active else R.drawable.bg_chip)
-            v.setTextColor(ContextCompat.getColor(this, if (i == sel) R.color.on_accent else R.color.muted_light))
+            Skin.styleChoice(v, i == sel)
         }
         names.forEachIndexed { i, n ->
             val v = TextView(this).apply {

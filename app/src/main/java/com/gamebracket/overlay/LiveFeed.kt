@@ -46,6 +46,8 @@ object LiveFeed {
 
     /** match → (nama tim → poin match tsb) */
     private val matchPoints = HashMap<Int, HashMap<String, Int>>()
+    /** Data mentah tiap match (kill & posisi), supaya poin bisa dihitung ulang saat aturan poin diubah. */
+    private val matchRaw = HashMap<Int, List<FeedTeam>>()
 
     /** [fn] dipanggil di main thread; argumen true = data tim/poin berubah (perlu gambar ulang). */
     fun setListener(key: String, fn: ((Boolean) -> Unit)?) {
@@ -69,6 +71,7 @@ object LiveFeed {
         failures = 0
         autoFilled = false
         matchPoints.clear()
+        matchRaw.clear()
         deviceLine = null
         feedLine = null
         GameWatcher.reset()
@@ -193,8 +196,27 @@ object LiveFeed {
         return kills * Prefs.killPoint(ctx) + place
     }
 
+    /** Aturan poin diubah di Pengaturan → hitung ulang semua match yang sudah masuk dan perbarui skor tim. */
+    fun recompute(ctx: Context) {
+        if (matchRaw.isEmpty()) return
+        val before = signature()
+        for ((m, teams) in matchRaw) {
+            matchPoints[m] = HashMap<String, Int>().also { map ->
+                teams.forEach { map[it.name.lowercase()] = pointsFor(ctx, it.kills, it.placement) }
+            }
+        }
+        val mode = BracketStore.mode
+        if (mode != null && mode.type == "br") {
+            for (t in BracketStore.teams) {
+                t.score = matchPoints.values.sumOf { it[t.name.trim().lowercase()] ?: 0 }
+            }
+        }
+        fireListeners(signature() != before)
+    }
+
     private fun apply(ctx: Context, match: Int, teams: List<FeedTeam>) {
         val before = signature()
+        matchRaw[match] = teams
         // simpan poin match ini (menggantikan snapshot lama untuk match yang sama)
         matchPoints[match] = HashMap<String, Int>().also { m ->
             teams.forEach { m[it.name.lowercase()] = pointsFor(ctx, it.kills, it.placement) }

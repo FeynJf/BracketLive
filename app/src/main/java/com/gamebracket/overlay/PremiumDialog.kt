@@ -31,6 +31,7 @@ class PremiumDialog(private val act: Activity) {
         subtitle = view.findViewById(R.id.dlgSubtitle)
         btnPrimary = view.findViewById(R.id.btnPrimary)
         btnSecondary = view.findViewById(R.id.btnSecondary)
+        Skin.apply(view)
         btnPrimary.visibility = View.GONE
         btnSecondary.visibility = View.GONE
     }

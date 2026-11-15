@@ -1,26 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Tema dasar aplikasi. Nilai bawaan = Neon Navy + Cyan Neon. Tema lain ditumpuk lewat applyStyle() -->
+    <!-- Tema dasar aplikasi (bawaan = Midnight Navy). 25 tema lain ditumpuk lewat applyStyle(). -->
     <style name="Theme.BracketLive" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="blBg1">#0B1030</item>
-        <item name="blBg2">#04050C</item>
-        <item name="blHeader1">#1A2260</item>
-        <item name="blHeader2">#0A0E28</item>
-        <item name="blSurface">#111838</item>
-        <item name="blSurface2">#141B40</item>
-        <item name="blSurface3">#0B1024</item>
-        <item name="blStroke">#27346A</item>
-        <item name="blAccent1">#00E5FF</item>
-        <item name="blAccent2">#FF2E88</item>
-        <item name="blAccent3">#7C4DFF</item>
-        <item name="blAccent1B">#3D7BFF</item>
-        <item name="blAccent1A">#6600E5FF</item>
-        <item name="blAccent2A">#66FF2E88</item>
-        <item name="blAccent1S">#2200E5FF</item>
-        <item name="blAccent2S">#22FF2E88</item>
-        <item name="colorPrimary">?attr/blAccent1</item>
-        <item name="colorPrimaryVariant">?attr/blAccent1B</item>
-        <item name="colorSecondary">?attr/blAccent2</item>
+        <item name="blBg1">#090D1E</item>
+        <item name="blBg2">#050710</item>
+        <item name="blHeader1">#0C122A</item>
+        <item name="blHeader2">#0A0F22</item>
+        <item name="blSurface">#0D142D</item>
+        <item name="blSurface2">#121A3D</item>
+        <item name="blSurface3">#0A0F22</item>
+        <item name="blStroke">#1D2B63</item>
+        <item name="colorPrimary">@color/text</item>
+        <item name="colorPrimaryVariant">@color/muted_light</item>
+        <item name="colorSecondary">@color/text</item>
         <item name="android:statusBarColor">?attr/blBg1</item>
         <item name="android:navigationBarColor">?attr/blBg2</item>
         <item name="android:windowBackground">?attr/blBg2</item>
@@ -36,140 +28,354 @@
         <item name="android:activityCloseExitAnimation">@anim/bl_slide_out_right</item>
     </style>
 
-    <style name="BL.Base.Navy" parent="">
-        <item name="blBg1">#0B1030</item>
-        <item name="blBg2">#04050C</item>
-        <item name="blHeader1">#1A2260</item>
-        <item name="blHeader2">#0A0E28</item>
-        <item name="blSurface">#111838</item>
-        <item name="blSurface2">#141B40</item>
-        <item name="blSurface3">#0B1024</item>
-        <item name="blStroke">#27346A</item>
+    <style name="BL.Base.T01" parent="">
+        <item name="blBg1">#090D1E</item>
+        <item name="blBg2">#050710</item>
+        <item name="blHeader1">#0C122A</item>
+        <item name="blHeader2">#0A0F22</item>
+        <item name="blSurface">#0D142D</item>
+        <item name="blSurface2">#121A3D</item>
+        <item name="blSurface3">#0A0F22</item>
+        <item name="blStroke">#1D2B63</item>
         <item name="android:statusBarColor">?attr/blBg1</item>
         <item name="android:navigationBarColor">?attr/blBg2</item>
         <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Base.Amoled" parent="">
+    <style name="BL.Base.T02" parent="">
         <item name="blBg1">#000000</item>
         <item name="blBg2">#000000</item>
-        <item name="blHeader1">#0C0C0C</item>
+        <item name="blHeader1">#0A0A0A</item>
         <item name="blHeader2">#050505</item>
-        <item name="blSurface">#0D0D10</item>
-        <item name="blSurface2">#131318</item>
-        <item name="blSurface3">#08080A</item>
-        <item name="blStroke">#2A2A33</item>
+        <item name="blSurface">#0C0C0C</item>
+        <item name="blSurface2">#141414</item>
+        <item name="blSurface3">#080808</item>
+        <item name="blStroke">#2A2A2A</item>
         <item name="android:statusBarColor">?attr/blBg1</item>
         <item name="android:navigationBarColor">?attr/blBg2</item>
         <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Base.Slate" parent="">
-        <item name="blBg1">#141A24</item>
-        <item name="blBg2">#0A0D13</item>
-        <item name="blHeader1">#222C3D</item>
-        <item name="blHeader2">#121823</item>
-        <item name="blSurface">#1A2230</item>
-        <item name="blSurface2">#202A3B</item>
-        <item name="blSurface3">#151B27</item>
-        <item name="blStroke">#33405A</item>
+    <style name="BL.Base.T03" parent="">
+        <item name="blBg1">#101317</item>
+        <item name="blBg2">#080A0C</item>
+        <item name="blHeader1">#161A20</item>
+        <item name="blHeader2">#12151A</item>
+        <item name="blSurface">#181C23</item>
+        <item name="blSurface2">#20262F</item>
+        <item name="blSurface3">#12151A</item>
+        <item name="blStroke">#343E4B</item>
         <item name="android:statusBarColor">?attr/blBg1</item>
         <item name="android:navigationBarColor">?attr/blBg2</item>
         <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Base.Aurora" parent="">
-        <item name="blBg1">#1A0F36</item>
-        <item name="blBg2">#07040F</item>
-        <item name="blHeader1">#2D1A66</item>
-        <item name="blHeader2">#150C30</item>
-        <item name="blSurface">#1F1445</item>
-        <item name="blSurface2">#27195A</item>
-        <item name="blSurface3">#150D30</item>
-        <item name="blStroke">#3F2C80</item>
+    <style name="BL.Base.T04" parent="">
+        <item name="blBg1">#110A1D</item>
+        <item name="blBg2">#09050F</item>
+        <item name="blHeader1">#170D28</item>
+        <item name="blHeader2">#130B21</item>
+        <item name="blSurface">#190F2C</item>
+        <item name="blSurface2">#22143B</item>
+        <item name="blSurface3">#130B21</item>
+        <item name="blStroke">#372060</item>
         <item name="android:statusBarColor">?attr/blBg1</item>
         <item name="android:navigationBarColor">?attr/blBg2</item>
         <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Base.Forest" parent="">
-        <item name="blBg1">#0A1F1A</item>
-        <item name="blBg2">#030907</item>
-        <item name="blHeader1">#103D32</item>
-        <item name="blHeader2">#082019</item>
-        <item name="blSurface">#0E2A23</item>
-        <item name="blSurface2">#12352B</item>
-        <item name="blSurface3">#0A1F1A</item>
-        <item name="blStroke">#1F5444</item>
+    <style name="BL.Base.T05" parent="">
+        <item name="blBg1">#0B1B16</item>
+        <item name="blBg2">#060E0C</item>
+        <item name="blHeader1">#10251E</item>
+        <item name="blHeader2">#0D1E19</item>
+        <item name="blSurface">#122921</item>
+        <item name="blSurface2">#18372D</item>
+        <item name="blSurface3">#0D1E19</item>
+        <item name="blStroke">#265948</item>
         <item name="android:statusBarColor">?attr/blBg1</item>
         <item name="android:navigationBarColor">?attr/blBg2</item>
         <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Accent.Cyan" parent="">
-        <item name="blAccent1">#00E5FF</item>
-        <item name="blAccent2">#FF2E88</item>
-        <item name="blAccent3">#7C4DFF</item>
-        <item name="blAccent1B">#3D7BFF</item>
-        <item name="blAccent1A">#6600E5FF</item>
-        <item name="blAccent2A">#66FF2E88</item>
-        <item name="blAccent1S">#2200E5FF</item>
-        <item name="blAccent2S">#22FF2E88</item>
+    <style name="BL.Base.T06" parent="">
+        <item name="blBg1">#121314</item>
+        <item name="blBg2">#0A0A0B</item>
+        <item name="blHeader1">#191A1C</item>
+        <item name="blHeader2">#141517</item>
+        <item name="blSurface">#1C1D1F</item>
+        <item name="blSurface2">#25272A</item>
+        <item name="blSurface3">#141517</item>
+        <item name="blStroke">#3C3E44</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Accent.Fire" parent="">
-        <item name="blAccent1">#FF8A00</item>
-        <item name="blAccent2">#FF2E4D</item>
-        <item name="blAccent3">#FFB800</item>
-        <item name="blAccent1B">#FF4D00</item>
-        <item name="blAccent1A">#66FF8A00</item>
-        <item name="blAccent2A">#66FF2E4D</item>
-        <item name="blAccent1S">#22FF8A00</item>
-        <item name="blAccent2S">#22FF2E4D</item>
+    <style name="BL.Base.T07" parent="">
+        <item name="blBg1">#151311</item>
+        <item name="blBg2">#0B0A09</item>
+        <item name="blHeader1">#1D1A18</item>
+        <item name="blHeader2">#181514</item>
+        <item name="blSurface">#201D1A</item>
+        <item name="blSurface2">#2B2724</item>
+        <item name="blSurface3">#181514</item>
+        <item name="blStroke">#463F39</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Accent.Emerald" parent="">
-        <item name="blAccent1">#00E5A0</item>
-        <item name="blAccent2">#00B3FF</item>
-        <item name="blAccent3">#7CFF6B</item>
-        <item name="blAccent1B">#00A86B</item>
-        <item name="blAccent1A">#6600E5A0</item>
-        <item name="blAccent2A">#6600B3FF</item>
-        <item name="blAccent1S">#2200E5A0</item>
-        <item name="blAccent2S">#2200B3FF</item>
+    <style name="BL.Base.T08" parent="">
+        <item name="blBg1">#0C141A</item>
+        <item name="blBg2">#070B0E</item>
+        <item name="blHeader1">#111C24</item>
+        <item name="blHeader2">#0E171D</item>
+        <item name="blSurface">#131F28</item>
+        <item name="blSurface2">#1A2A35</item>
+        <item name="blSurface3">#0E171D</item>
+        <item name="blStroke">#294356</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Accent.Gold" parent="">
-        <item name="blAccent1">#FFC83D</item>
-        <item name="blAccent2">#FF7A00</item>
-        <item name="blAccent3">#FFE27A</item>
-        <item name="blAccent1B">#E0A000</item>
-        <item name="blAccent1A">#66FFC83D</item>
-        <item name="blAccent2A">#66FF7A00</item>
-        <item name="blAccent1S">#22FFC83D</item>
-        <item name="blAccent2S">#22FF7A00</item>
+    <style name="BL.Base.T09" parent="">
+        <item name="blBg1">#091A1E</item>
+        <item name="blBg2">#050E10</item>
+        <item name="blHeader1">#0C252A</item>
+        <item name="blHeader2">#0A1E22</item>
+        <item name="blSurface">#0D282D</item>
+        <item name="blSurface2">#12363D</item>
+        <item name="blSurface3">#0A1E22</item>
+        <item name="blStroke">#1D5763</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Accent.Violet" parent="">
-        <item name="blAccent1">#B388FF</item>
-        <item name="blAccent2">#FF4DA6</item>
-        <item name="blAccent3">#7C4DFF</item>
-        <item name="blAccent1B">#8F5BFF</item>
-        <item name="blAccent1A">#66B388FF</item>
-        <item name="blAccent2A">#66FF4DA6</item>
-        <item name="blAccent1S">#22B388FF</item>
-        <item name="blAccent2S">#22FF4DA6</item>
+    <style name="BL.Base.T10" parent="">
+        <item name="blBg1">#1C0B0D</item>
+        <item name="blBg2">#0F0607</item>
+        <item name="blHeader1">#270F13</item>
+        <item name="blHeader2">#1F0C0F</item>
+        <item name="blSurface">#2B1015</item>
+        <item name="blSurface2">#39161C</item>
+        <item name="blSurface3">#1F0C0F</item>
+        <item name="blStroke">#5C232D</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
-    <style name="BL.Accent.Ice" parent="">
-        <item name="blAccent1">#4DB8FF</item>
-        <item name="blAccent2">#00E5FF</item>
-        <item name="blAccent3">#7C9BFF</item>
-        <item name="blAccent1B">#2979FF</item>
-        <item name="blAccent1A">#664DB8FF</item>
-        <item name="blAccent2A">#6600E5FF</item>
-        <item name="blAccent1S">#224DB8FF</item>
-        <item name="blAccent2S">#2200E5FF</item>
+    <style name="BL.Base.T11" parent="">
+        <item name="blBg1">#1A110C</item>
+        <item name="blBg2">#0E0907</item>
+        <item name="blHeader1">#241811</item>
+        <item name="blHeader2">#1D140E</item>
+        <item name="blSurface">#281B13</item>
+        <item name="blSurface2">#35241A</item>
+        <item name="blSurface3">#1D140E</item>
+        <item name="blStroke">#563A29</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T12" parent="">
+        <item name="blBg1">#16190D</item>
+        <item name="blBg2">#0C0D07</item>
+        <item name="blHeader1">#1F2313</item>
+        <item name="blHeader2">#191C0F</item>
+        <item name="blSurface">#222615</item>
+        <item name="blSurface2">#2D331C</item>
+        <item name="blSurface3">#191C0F</item>
+        <item name="blStroke">#49532D</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T13" parent="">
+        <item name="blBg1">#0B1C1A</item>
+        <item name="blBg2">#060F0E</item>
+        <item name="blHeader1">#0F2725</item>
+        <item name="blHeader2">#0C1F1E</item>
+        <item name="blSurface">#102B28</item>
+        <item name="blSurface2">#163936</item>
+        <item name="blSurface3">#0C1F1E</item>
+        <item name="blStroke">#235C58</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T14" parent="">
+        <item name="blBg1">#0A0A1D</item>
+        <item name="blBg2">#05050F</item>
+        <item name="blHeader1">#0D0D28</item>
+        <item name="blHeader2">#0B0B21</item>
+        <item name="blSurface">#0F0F2C</item>
+        <item name="blSurface2">#14143B</item>
+        <item name="blSurface3">#0B0B21</item>
+        <item name="blStroke">#202060</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T15" parent="">
+        <item name="blBg1">#1A0C1A</item>
+        <item name="blBg2">#0E070E</item>
+        <item name="blHeader1">#241124</item>
+        <item name="blHeader2">#1D0E1D</item>
+        <item name="blSurface">#281328</item>
+        <item name="blSurface2">#351A35</item>
+        <item name="blSurface3">#1D0E1D</item>
+        <item name="blStroke">#562956</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T16" parent="">
+        <item name="blBg1">#101116</item>
+        <item name="blBg2">#09090C</item>
+        <item name="blHeader1">#17181F</item>
+        <item name="blHeader2">#121419</item>
+        <item name="blSurface">#191A22</item>
+        <item name="blSurface2">#22242D</item>
+        <item name="blSurface3">#121419</item>
+        <item name="blStroke">#363949</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T17" parent="">
+        <item name="blBg1">#141212</item>
+        <item name="blBg2">#0B0A0A</item>
+        <item name="blHeader1">#1C1A1A</item>
+        <item name="blHeader2">#171515</item>
+        <item name="blSurface">#1E1C1C</item>
+        <item name="blSurface2">#292626</item>
+        <item name="blSurface3">#171515</item>
+        <item name="blStroke">#423D3D</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T18" parent="">
+        <item name="blBg1">#160B1B</item>
+        <item name="blBg2">#0C060E</item>
+        <item name="blHeader1">#1E1025</item>
+        <item name="blHeader2">#190D1E</item>
+        <item name="blSurface">#211229</item>
+        <item name="blSurface2">#2D1837</item>
+        <item name="blSurface3">#190D1E</item>
+        <item name="blStroke">#482659</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T19" parent="">
+        <item name="blBg1">#0C1A11</item>
+        <item name="blBg2">#070E09</item>
+        <item name="blHeader1">#112418</item>
+        <item name="blHeader2">#0E1D13</item>
+        <item name="blSurface">#13281A</item>
+        <item name="blSurface2">#1A3523</item>
+        <item name="blSurface3">#0E1D13</item>
+        <item name="blStroke">#295638</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T20" parent="">
+        <item name="blBg1">#171310</item>
+        <item name="blBg2">#0C0A08</item>
+        <item name="blHeader1">#201B16</item>
+        <item name="blHeader2">#1A1612</item>
+        <item name="blSurface">#231D18</item>
+        <item name="blSurface2">#2F2820</item>
+        <item name="blSurface3">#1A1612</item>
+        <item name="blStroke">#4B4034</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T21" parent="">
+        <item name="blBg1">#0E1518</item>
+        <item name="blBg2">#080B0D</item>
+        <item name="blHeader1">#141D21</item>
+        <item name="blHeader2">#10171B</item>
+        <item name="blSurface">#162025</item>
+        <item name="blSurface2">#1E2B31</item>
+        <item name="blSurface3">#10171B</item>
+        <item name="blStroke">#304550</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T22" parent="">
+        <item name="blBg1">#1A0C13</item>
+        <item name="blBg2">#0E060A</item>
+        <item name="blHeader1">#25111B</item>
+        <item name="blHeader2">#1E0D16</item>
+        <item name="blSurface">#28121D</item>
+        <item name="blSurface2">#371928</item>
+        <item name="blSurface3">#1E0D16</item>
+        <item name="blStroke">#582840</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T23" parent="">
+        <item name="blBg1">#1C0F0B</item>
+        <item name="blBg2">#0F0806</item>
+        <item name="blHeader1">#27150F</item>
+        <item name="blHeader2">#1F110C</item>
+        <item name="blSurface">#2B1710</item>
+        <item name="blSurface2">#391F16</item>
+        <item name="blSurface3">#1F110C</item>
+        <item name="blStroke">#5C3123</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T24" parent="">
+        <item name="blBg1">#071120</item>
+        <item name="blBg2">#040911</item>
+        <item name="blHeader1">#09182C</item>
+        <item name="blHeader2">#081324</item>
+        <item name="blSurface">#0A1A30</item>
+        <item name="blSurface2">#0E2341</item>
+        <item name="blSurface3">#081324</item>
+        <item name="blStroke">#163969</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
+    </style>
+
+    <style name="BL.Base.T25" parent="">
+        <item name="blBg1">#11180E</item>
+        <item name="blBg2">#090D07</item>
+        <item name="blHeader1">#182213</item>
+        <item name="blHeader2">#141C10</item>
+        <item name="blSurface">#1B2615</item>
+        <item name="blSurface2">#24331C</item>
+        <item name="blSurface3">#141C10</item>
+        <item name="blStroke">#3A522E</item>
+        <item name="android:statusBarColor">?attr/blBg1</item>
+        <item name="android:navigationBarColor">?attr/blBg2</item>
+        <item name="android:windowBackground">?attr/blBg2</item>
     </style>
 
 </resources>

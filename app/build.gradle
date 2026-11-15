@@ -5,6 +5,8 @@ plugins {
 
 // Nomor build = nomor run GitHub Actions + 100 (otomatis, tanpa perlu mengubah workflow).
 // Bisa juga dipaksa lewat -PbuildNumber=... Dipakai sebagai versionCode & dibandingkan oleh fitur update.
+// Nama versi rilis (tampil di aplikasi). Ubah di sini tiap rilis baru.
+def appVersion = '1.9'
 def ciRun = System.getenv('GITHUB_RUN_NUMBER')
 def buildNumber = (project.findProperty('buildNumber') ?: (ciRun ? (ciRun.toInteger() + 100).toString() : '100')).toInteger()
 
@@ -25,7 +27,7 @@ android {
         minSdk 24
         targetSdk 34
         versionCode buildNumber
-        versionName "3.1.${buildNumber}"
+        versionName appVersion
     }
 
     signingConfigs {
@@ -134,7 +136,7 @@ tasks.register('publishApk') {
                 }
                 new File(tmp, 'version.json').text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
                     build: buildNumber,
-                    name : "3.1.${buildNumber}".toString(),
+                    name : appVersion,
                     notes: notes,
                     apk  : 'BracketLive.apk'
                 ]))

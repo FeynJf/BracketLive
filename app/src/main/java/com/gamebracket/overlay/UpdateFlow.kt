@@ -85,20 +85,20 @@ class UpdateFlow(
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(14), dp(8), dp(14), dp(8))
-            setBackgroundResource(if (accent) R.drawable.bg_chip_active else R.drawable.bg_chip)
+            background = if (accent) Skin.chipActive(act) else Skin.chip(act)
         }
         box.addView(TextView(act).apply {
             text = caption
             textSize = 8f
-            letterSpacing = 0.15f
+            letterSpacing = 0.05f
             setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
-            setTextColor(if (accent) col(R.color.on_accent) else col(R.color.muted))
+            setTextColor(if (accent) Skin.onAccent(act) else col(R.color.muted))
         })
         box.addView(TextView(act).apply {
             text = value
             textSize = 15f
             setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
-            setTextColor(if (accent) col(R.color.on_accent) else col(R.color.text))
+            setTextColor(if (accent) Skin.onAccent(act) else col(R.color.text))
         })
         return box
     }
@@ -111,7 +111,7 @@ class UpdateFlow(
             val bullet = line.startsWith("•")
             val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, if (i == 0) 0 else dp(5), 0, 0) }
             if (bullet) {
-                row.addView(TextView(act).apply { text = "▸"; textSize = 12f; setTextColor(accent); setPadding(0, 0, dp(8), 0) })
+                row.addView(View(act).apply { setBackgroundColor(accent); layoutParams = LinearLayout.LayoutParams(dp(5), dp(5)).apply { topMargin = dp(7); marginEnd = dp(9) } })
             }
             row.addView(TextView(act).apply {
                 text = if (bullet) line.removePrefix("•").trim() else line
@@ -127,13 +127,13 @@ class UpdateFlow(
     }
 
     private fun showDialog(info: UpdateChecker.Info, cur: Int) {
-        val d = PremiumDialog(act).title("UPDATE TERSEDIA", "BRACKET LIVE · BUILD ${info.build}")
+        val d = PremiumDialog(act).title("Update tersedia", "Bracket Live · build ${info.build}")
 
         // versi terpasang ➜ versi terbaru (+ ukuran)
         val row = LinearLayout(act).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         row.addView(versionChip("TERPASANG", "build $cur", false))
         row.addView(TextView(act).apply {
-            text = "➜"
+            text = "→"
             textSize = 16f
             setTextColor(ThemeManager.accent1(act))
             setPadding(dp(10), 0, dp(10), 0)
@@ -163,13 +163,13 @@ class UpdateFlow(
             }
             d.body.addView(scroll, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
         }
-        d.primary("⬇  Download & Install") { download(info); true }
+        d.primary("Download & Install") { download(info); true }
         d.secondary("Nanti")
         d.show()
     }
 
     private fun download(info: UpdateChecker.Info) {
-        val d = PremiumDialog(act).title("MENGUNDUH UPDATE", "JANGAN TUTUP APLIKASI").cancelable(false)
+        val d = PremiumDialog(act).title("Mengunduh update", "Jangan tutup aplikasi").cancelable(false)
 
         val pct = TextView(act).apply {
             text = "0%"
@@ -235,7 +235,7 @@ class UpdateFlow(
                         status.text = "✓ Berhasil diunduh & diverifikasi"
                         status.setTextColor(col(R.color.green))
                         detail.text = "Layar pemasangan akan terbuka"
-                        d.title("UPDATE SIAP", "TINGGAL PASANG")
+                        d.title("Update siap", "Tinggal pasang")
                         d.primary("Pasang Sekarang") { install(f); false }
                         d.secondary("Tutup") { true }
                         d.dialog.setCancelable(true)
@@ -263,7 +263,7 @@ class UpdateFlow(
     private fun showFailure(d: PremiumDialog, info: UpdateChecker.Info, reason: String) {
         onStatus("Gagal mengunduh update: $reason")
         d.dismiss()
-        val f = PremiumDialog(act).title("GAGAL MENGUNDUH", "UPDATE BELUM TERPASANG")
+        val f = PremiumDialog(act).title("Gagal mengunduh", "Update belum terpasang")
         f.message(reason).setTextColor(col(R.color.red))
         f.primary("Coba Lagi") { download(info); true }
         f.secondary("Tutup")
@@ -274,7 +274,7 @@ class UpdateFlow(
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !act.packageManager.canRequestPackageInstalls()) {
             pendingApk = apk
             PremiumDialog.message(
-                act, "IZIN INSTALL", "SATU KALI SAJA",
+                act, "Izin install", "Satu kali saja",
                 "Izinkan Bracket Live untuk memasang aplikasi, lalu kembali ke sini. Update akan dilanjutkan otomatis.",
                 "Buka Settings", "Batal",
                 onPositive = {
