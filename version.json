@@ -1,0 +1,6 @@
+{
+    "build": 137,
+    "name": "2.0",
+    "notes": "## v2.0 \u2014 100 desain UI, ribuan font, sertifikat lengkap\n- Pengaturan \u2192 Tampilan: 100 desain UI yang berbeda bentuk (kartu, tombol, garis, sudut), bukan sekadar warna\n- Font aplikasi: 700 pilihan dari Google Fonts, diunduh sekali lalu bisa offline, dengan pencarian dan pratinjau\n- Gaya judul turnamen: 300 pilihan font, ukuran 12-44 sp, dan posisi kiri / tengah / kanan; judul di panel overlay dirapikan\n- Sertifikat: 100 desain (10 tata letak x 10 bingkai), 300 font, 20 gaya tanda tangan, 20 bentuk, 100 tema warna\n- Memori kompiler dinaikkan supaya build tetap lancar",
+    "apk": "BracketLive.apk"
+}
