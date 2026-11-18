@@ -44,8 +44,11 @@ class CertificateActivity : BaseActivity() {
     private var pickTarget: ((String) -> Unit)? = null
     private lateinit var btnChampLogo: TextView
     private lateinit var btnOrgLogo: TextView
-    private val themeButtons = mutableListOf<TextView>()
-    private val shapeButtons = mutableListOf<TextView>()
+    private var designValue: TextView? = null
+    private var shapeValue: TextView? = null
+    private var themeValue: TextView? = null
+    private var fontValue: TextView? = null
+    private var sigValue: TextView? = null
 
     private val bgPicker = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri == null) return@registerForActivityResult
@@ -86,15 +89,15 @@ class CertificateActivity : BaseActivity() {
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
         findViewById<View>(R.id.btnSave).setOnClickListener { save() }
 
-        addField("JUDUL SERTIFIKAT", data.title) { data.title = it }
-        addField("NAMA JUARA", data.name) { data.name = it }
-        addField("PERINGKAT", data.ranking) { data.ranking = it }
-        addField("TURNAMEN / EVENT", data.event) { data.event = it }
-        addField("TANGGAL", data.date) { data.date = it }
-        addField("NAMA PANITIA (JADI TANDA TANGAN)", data.signer, "Ketik nama, otomatis jadi tanda tangan") { data.signer = it }
-        addField("JABATAN", data.signerRole) { data.signerRole = it }
+        addField("Judul sertifikat", data.title) { data.title = it }
+        addField("Nama juara", data.name) { data.name = it }
+        addField("Peringkat", data.ranking) { data.ranking = it }
+        addField("Turnamen / event", data.event) { data.event = it }
+        addField("Tanggal", data.date) { data.date = it }
+        addField("Nama panitia (jadi tanda tangan)", data.signer, "Ketik nama, otomatis jadi tanda tangan") { data.signer = it }
+        addField("Jabatan", data.signerRole) { data.signerRole = it }
 
-        addLabel("LOGO")
+        addLabel("Logo")
         val logoRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         btnChampLogo = smallButton("Logo juara") { pickTarget = { p -> data.championLogo = p; updateLogoButtons(); schedule() }; picker.launch("image/*") }
         btnOrgLogo = smallButton("Logo penyelenggara") { pickTarget = { p -> data.orgLogo = p; updateLogoButtons(); schedule() }; picker.launch("image/*") }
@@ -107,29 +110,57 @@ class CertificateActivity : BaseActivity() {
         form.addView(clearRow)
         updateLogoButtons()
 
-        addLabel("BENTUK SERTIFIKAT")
-        shapeButtons.clear()
-        val shapeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        CertificateRenderer.shapes.forEachIndexed { i, sh ->
-            val b = smallButton(sh.name) { data.shape = i; updateChips(); schedule() }
-            shapeButtons.add(b)
-            shapeRow.addView(b)
+        addLabel("Tampilan sertifikat")
+        designValue = pickerRow("Desain (${CertificateRenderer.designNames.size} pilihan)", CertificateRenderer.designNames[data.design]) {
+            ListPicker.show(this, "Desain sertifikat", "10 tata letak x 10 bingkai",
+                CertificateRenderer.designNames.map { PickRow(it) }, data.design) { i ->
+                data.design = i; designValue?.text = CertificateRenderer.designNames[i]; schedule()
+            }
         }
-        form.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(shapeRow) })
-
-        addLabel("TEMA WARNA")
-        themeButtons.clear()
-        val themeRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        CertificateRenderer.themes.forEachIndexed { i, t ->
-            val b = smallButton(t.name) { data.theme = i; updateChips(); schedule() }
-            b.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(42)).apply { marginEnd = dp(8); topMargin = dp(6) }
-            b.setPadding(dp(16), 0, dp(16), 0)
-            themeButtons.add(b)
-            themeRow.addView(b)
+        shapeValue = pickerRow("Bentuk (${CertificateRenderer.shapes.size} pilihan)", CertificateRenderer.shapes[data.shape].name) {
+            ListPicker.show(this, "Bentuk sertifikat", "${CertificateRenderer.shapes.size} ukuran dan rasio",
+                CertificateRenderer.shapes.map { PickRow(it.name, "${it.w} x ${it.h}") }, data.shape) { i ->
+                data.shape = i; shapeValue?.text = CertificateRenderer.shapes[i].name; schedule()
+            }
         }
-        form.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(themeRow) })
+        themeValue = pickerRow("Tema warna (${CertificateRenderer.themes.size} pilihan)", CertificateRenderer.themes[data.theme].name) {
+            ListPicker.show(this, "Tema warna", "${CertificateRenderer.themes.size} palet",
+                CertificateRenderer.themes.map { PickRow(it.name, dots = intArrayOf(it.bg1, it.acc1, it.acc2)) }, data.theme) { i ->
+                data.theme = i; themeValue?.text = CertificateRenderer.themes[i].name; schedule()
+            }
+        }
+        fontValue = pickerRow("Font teks (${Fonts.list(this, "cert").size} pilihan)", data.font.ifEmpty { "Bawaan sistem" }) {
+            Pickers.font(this, "cert", data.font, "Font sertifikat") { n ->
+                data.font = n; fontValue?.text = n.ifEmpty { "Bawaan sistem" }; schedule()
+            }
+        }
+        val signNames = Fonts.list(this, "sign")
+        sigValue = pickerRow("Gaya tanda tangan (${signNames.size} pilihan)", signNames.getOrNull(data.sigStyle) ?: "Bawaan") {
+            val sample = data.signer.ifBlank { "Nama Panitia" }
+            ListPicker.show(this, "Gaya tanda tangan", "${signNames.size} gaya tulisan tangan",
+                signNames.map { n -> PickRow(n, face = { Fonts.cached(this, n) }) }, data.sigStyle, confirm = true, preview = sample,
+                onPreview = { idx, tv ->
+                    val n = signNames[idx]
+                    tv.tag = idx
+                    tv.text = sample
+                    tv.textSize = 30f
+                    val f = Fonts.cached(this, n)
+                    if (f != null) tv.typeface = f else {
+                        tv.text = "Mengunduh…"
+                        Fonts.ensure(this, n) { ok ->
+                            if (tv.tag == idx) { tv.text = if (ok) sample else "Gagal mengunduh"; if (ok) tv.typeface = Fonts.cached(this, n) }
+                        }
+                    }
+                }
+            ) { idx ->
+                val n = signNames[idx]
+                Fonts.ensure(this, n) { _ ->
+                    data.sigStyle = idx; sigValue?.text = n; schedule()
+                }
+            }
+        }
 
-        addLabel("BACKGROUND SENDIRI")
+        addLabel("Background sendiri")
         val bgRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         bgRow.addView(smallButton("Pilih gambar") {
             pickTarget = { p -> data.bgImage = p; schedule() }
@@ -168,8 +199,6 @@ class CertificateActivity : BaseActivity() {
         })
         scrimRow.addView(tvScrim)
         form.addView(scrimRow)
-        updateChips()
-
         Anim.pressAll(window.decorView)
         refresh.run()
     }
@@ -184,13 +213,46 @@ class CertificateActivity : BaseActivity() {
         btnOrgLogo.text = if (data.orgLogo != null) "Logo penyelenggara ✓" else "Logo penyelenggara"
     }
 
-    private fun updateChips() {
-        fun paint(list: List<TextView>, sel: Int) = list.forEachIndexed { i, b ->
-            val on = sel == i
-            Skin.styleChoice(b, on)
+    /** Baris "nilai + keterangan + tombol Pilih". Mengembalikan TextView nilai. */
+    private fun pickerRow(caption: String, value: String, onOpen: () -> Unit): TextView {
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
+        val valueTv = TextView(this).apply {
+            text = value
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(context, R.color.text))
         }
-        paint(themeButtons, data.theme)
-        paint(shapeButtons, data.shape)
+        row.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(valueTv)
+            addView(TextView(context).apply { text = caption; textSize = 11f; setTextColor(ContextCompat.getColor(context, R.color.muted)) })
+        })
+        row.addView(TextView(this).apply {
+            text = "Pilih"
+            gravity = Gravity.CENTER
+            textSize = 12f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(context, R.color.muted_light))
+            setPadding(dp(18), 0, dp(18), 0)
+            background = Skin.chip(this@CertificateActivity)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38))
+            setOnClickListener { onOpen() }
+        })
+        form.addView(row)
+        return valueTv
+    }
+
+    override fun onStart() {
+        super.onStart()
+        Fonts.addListener("cert") { schedule() }
+        Fonts.list(this, "sign").getOrNull(data.sigStyle)?.let { Fonts.ensure(this, it) }
+        if (data.font.isNotEmpty()) Fonts.ensure(this, data.font)
+    }
+
+    override fun onStop() {
+        Fonts.addListener("cert", null)
+        super.onStop()
     }
 
     private fun addLabel(text: String) {

@@ -10,6 +10,10 @@
         <item name="blSurface2">#121A3D</item>
         <item name="blSurface3">#0A0F22</item>
         <item name="blStroke">#1D2B63</item>
+        <item name="blCardRadius">14dp</item>
+        <item name="blChipRadius">10dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
         <item name="colorPrimary">@color/text</item>
         <item name="colorPrimaryVariant">@color/muted_light</item>
         <item name="colorSecondary">@color/text</item>

@@ -34,6 +34,14 @@ object Prefs {
     fun animations(ctx: Context) = bool(ctx, "animations", true)
     fun setAnimations(ctx: Context, v: Boolean) = putBool(ctx, "animations", v)
 
+    // ── Font & desain UI ──
+    /** Nama keluarga font aplikasi ("" = bawaan). */
+    fun uiFont(ctx: Context) = str(ctx, "ui_font", "")
+    fun setUiFont(ctx: Context, v: String) = putStr(ctx, "ui_font", v)
+    /** Desain UI 0..99 (bentuk kartu/tombol/garis, bukan warna). */
+    fun uiDesign(ctx: Context) = int(ctx, "ui_design", 0).coerceIn(0, 99)
+    fun setUiDesign(ctx: Context, v: Int) = putInt(ctx, "ui_design", v.coerceIn(0, 99))
+
     /** 0 = otomatis dari perangkat, 1 = hemat, 2 = maksimal. */
     fun perfMode(ctx: Context) = int(ctx, "perf_mode", 0)
     fun setPerfMode(ctx: Context, v: Int) = putInt(ctx, "perf_mode", v)
@@ -80,6 +88,14 @@ object Prefs {
     /** Nama turnamen: tampil di atas bracket (aplikasi) dan di panel overlay. */
     fun tournamentName(ctx: Context) = str(ctx, "tournament_name", "")
     fun setTournamentName(ctx: Context, v: String) = putStr(ctx, "tournament_name", v.trim())
+    /** Gaya judul turnamen: font, ukuran (sp) dan posisi (0 kiri, 1 tengah, 2 kanan). */
+    fun titleFont(ctx: Context) = str(ctx, "title_font", "")
+    fun setTitleFont(ctx: Context, v: String) = putStr(ctx, "title_font", v)
+    fun titleSize(ctx: Context) = int(ctx, "title_size", 22).coerceIn(12, 44)
+    fun setTitleSize(ctx: Context, v: Int) = putInt(ctx, "title_size", v.coerceIn(12, 44))
+    fun titleAlign(ctx: Context) = int(ctx, "title_align", 0).coerceIn(0, 2)
+    fun setTitleAlign(ctx: Context, v: Int) = putInt(ctx, "title_align", v.coerceIn(0, 2))
+
     /** Ukuran bracket penuh terakhir (dipulihkan saat mode "langsung semifinal" dimatikan). */
     fun fullBracketSize(ctx: Context) = int(ctx, "full_bracket_size", 8)
     fun setFullBracketSize(ctx: Context, v: Int) = putInt(ctx, "full_bracket_size", v)

@@ -195,6 +195,8 @@ class OverlayService : Service() {
         val v = LayoutInflater.from(ui).inflate(R.layout.overlay_bracket, null)
         root = v
         Skin.apply(v)
+        Fonts.apply(v)
+        Fonts.addListener("overlay") { root?.let { Fonts.apply(it) } }
         bubble = v.findViewById(R.id.bubble)
         bubbleIcon = v.findViewById(R.id.bubbleCore)
         holdRing = v.findViewById(R.id.holdRing)
@@ -601,6 +603,7 @@ class OverlayService : Service() {
             content.removeAllViews()
             content.addView(label("Gagal menampilkan isi: ${e.message}", 11f, R.color.red, false))
         }
+        Fonts.apply(content)
     }
 
     private fun renderInner() {
@@ -618,16 +621,22 @@ class OverlayService : Service() {
             })
         } else {
             val info = if (mode.type == "br") mode.name else "${mode.name} · BO${BracketStore.boFormat}"
+            // blok judul: nama turnamen (font/ukuran/posisi dari Pengaturan) + keterangan game · mode
+            val gravity = when (Prefs.titleAlign(this)) { 0 -> Gravity.START; 1 -> Gravity.CENTER_HORIZONTAL; else -> Gravity.END }
             if (tournament.isNotBlank()) {
-                // nama turnamen ditulis di atas bracket
-                content.addView(label(tournament, 16f, R.color.text, true).apply {
-                    typeface = android.graphics.Typeface.create("sans-serif-condensed", android.graphics.Typeface.BOLD)
+                val titleSp = (Prefs.titleSize(this) * 0.8f).coerceIn(12f, 34f)
+                content.addView(label(tournament, titleSp, R.color.text, true).apply {
+                    this.gravity = gravity
                     maxLines = 2
-                    setPadding(dp(2), 0, 0, dp(2))
+                    setPadding(dp(2), 0, dp(2), dp(1))
+                    Fonts.markTitle(this)
+                    typeface = Fonts.titleFace(this@OverlayService)?.let { Typeface.create(it, Typeface.BOLD) }
+                        ?: Typeface.create("sans-serif-condensed", Typeface.BOLD)
                 })
             }
             content.addView(label("$gameName · $info", 10f, R.color.muted_light, false).apply {
-                setPadding(dp(2), 0, 0, dp(8))
+                this.gravity = gravity
+                setPadding(dp(2), 0, dp(2), dp(8))
             })
             if (mode.type == "br") renderTeams() else renderBracket()
         }
@@ -799,6 +808,7 @@ class OverlayService : Service() {
         AppVisibility.listener = null
         OverlayService.onSettingsChanged = null
         LiveFeed.setListener("overlay", null)
+        Fonts.addListener("overlay", null)
         setRunning(false)
         try { root?.let { wm.removeView(it) } } catch (_: Exception) {}
         root = null

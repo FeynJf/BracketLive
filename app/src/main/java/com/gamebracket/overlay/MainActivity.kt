@@ -110,6 +110,7 @@ class MainActivity : BaseActivity() {
         }
         // nama turnamen: tampil di atas bracket
         tvTournamentTitle = findViewById(R.id.tvTournamentTitle)
+        Fonts.markTitle(tvTournamentTitle)
         val etTournament = findViewById<EditText>(R.id.etTournament)
         etTournament.setText(Prefs.tournamentName(this))
         etTournament.addTextChangedListener(simpleWatcher {
@@ -233,6 +234,9 @@ class MainActivity : BaseActivity() {
         val name = Prefs.tournamentName(this)
         val show = name.isNotBlank() && emptyState.visibility != View.VISIBLE
         tvTournamentTitle.text = name
+        tvTournamentTitle.textSize = Prefs.titleSize(this).toFloat()
+        tvTournamentTitle.gravity = when (Prefs.titleAlign(this)) { 0 -> Gravity.START; 1 -> Gravity.CENTER_HORIZONTAL; else -> Gravity.END }
+        Fonts.titleFace(this)?.let { tvTournamentTitle.setTypeface(it, Typeface.BOLD) }
         tvTournamentTitle.visibility = if (show) View.VISIBLE else View.GONE
     }
 

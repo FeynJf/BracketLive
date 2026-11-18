@@ -2,6 +2,13 @@
 
 Bagian paling atas di bawah ini otomatis tampil di aplikasi (Pengaturan → Cek Update) saat ada update.
 
+## v2.0 — 100 desain UI, ribuan font, sertifikat lengkap
+- Pengaturan → Tampilan: 100 desain UI yang berbeda bentuk (kartu, tombol, garis, sudut), bukan sekadar warna
+- Font aplikasi: 700 pilihan dari Google Fonts, diunduh sekali lalu bisa offline, dengan pencarian dan pratinjau
+- Gaya judul turnamen: 300 pilihan font, ukuran 12-44 sp, dan posisi kiri / tengah / kanan; judul di panel overlay dirapikan
+- Sertifikat: 100 desain (10 tata letak x 10 bingkai), 300 font, 20 gaya tanda tangan, 20 bentuk, 100 tema warna
+- Memori kompiler dinaikkan supaya build tetap lancar
+
 ## v1.9 — Rilis final: desain baru, 35 panel, warna bebas
 - Tampilan dirombak total: lebih rapi dan tegas, tanpa emoji dan efek neon berlebihan, ikon konsisten
 - Tema UI jadi 25 pilihan, warna aksen bebas (16,7 juta warna) dengan pemilih warna dan kode hex

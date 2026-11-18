@@ -8,4 +8,8 @@
     <attr name="blSurface2" format="color"/>
     <attr name="blSurface3" format="color"/>
     <attr name="blStroke" format="color"/>
+    <attr name="blCardRadius" format="dimension"/>
+    <attr name="blChipRadius" format="dimension"/>
+    <attr name="blStrokeW" format="dimension"/>
+    <attr name="blCardFill" format="color"/>
 </resources>

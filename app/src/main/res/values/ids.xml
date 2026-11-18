@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- penanda font pada TextView: peran (title/keep) dan font yang sudah terpasang -->
+    <item name="font_role" type="id" />
+    <item name="font_key" type="id" />
+</resources>

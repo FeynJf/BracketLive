@@ -51,6 +51,11 @@ Poin tim = kills × poin per kill + poin posisi. Nomor `match` yang berbeda diju
 7 tema warna, 4 bentuk (Landscape, Portrait, Persegi, 16:9), background gambar sendiri, dan tanda tangan
 tegak bersambung dari nama panitia.
 
+## Rilis 2.0
+- 100 desain UI, font aplikasi (700), gaya judul turnamen (font 300, ukuran, posisi kiri/tengah/kanan)
+- Sertifikat: 100 desain, 300 font, 20 tanda tangan, 20 bentuk, 100 tema warna
+- Font diunduh dari Google Fonts saat dipilih (butuh internet sekali), lalu tersimpan di perangkat
+
 ## Rilis 1.9
 - 25 tema UI + warna aksen bebas (pemilih warna penuh)
 - 35 bentuk panel overlay, 66 desain tombol, 44 ikon

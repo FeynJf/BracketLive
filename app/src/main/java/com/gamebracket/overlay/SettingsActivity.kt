@@ -77,6 +77,7 @@ class SettingsActivity : BaseActivity() {
         buildDesign()
         buildPanel()
         buildTournament()
+        buildTitleStyle()
         buildLive()
         buildPerformance()
         buildUpdate()
@@ -110,6 +111,90 @@ class SettingsActivity : BaseActivity() {
     }
 
     // ───────────────────────── Bagian: Tampilan ─────────────────────────
+
+    /** Baris "label + nilai + tombol Pilih". Mengembalikan TextView nilai supaya bisa diperbarui. */
+    private fun pickRow(parent: LinearLayout, caption: String, value: String, button: String, onOpen: () -> Unit): TextView {
+        val r = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(0, dp(8), 0, 0) }
+        val valueTv = tv(value, 14f, R.color.text, true)
+        r.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            addView(valueTv)
+            addView(tv(caption, 11f, R.color.muted, false))
+        })
+        r.addView(TextView(this).apply {
+            text = button
+            gravity = Gravity.CENTER
+            textSize = 12f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.muted_light))
+            setPadding(dp(16), 0, dp(16), 0)
+            background = Skin.chip(this@SettingsActivity)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(38))
+            setOnClickListener { onOpen() }
+        })
+        parent.addView(r)
+        return valueTv
+    }
+
+    private fun pickFont(which: String, current: String, title: String, onChosen: (String) -> Unit) =
+        Pickers.font(this, which, current, title, onChosen)
+
+    // ───────────────────────── Bagian: Gaya judul turnamen ─────────────────────────
+
+    private var titlePreview: TextView? = null
+
+    private fun titleGravity() = when (Prefs.titleAlign(this)) { 0 -> Gravity.START; 1 -> Gravity.CENTER_HORIZONTAL; else -> Gravity.END }
+
+    private fun refreshTitlePreview() {
+        val t = titlePreview ?: return
+        t.text = Prefs.tournamentName(this).ifBlank { "Nama Turnamen" }
+        t.textSize = Prefs.titleSize(this).toFloat()
+        t.gravity = titleGravity()
+        Fonts.titleFace(this)?.let { t.setTypeface(it, Typeface.BOLD) } ?: t.setTypeface(Typeface.create("sans-serif-condensed", Typeface.BOLD))
+    }
+
+    private fun titleStyleChanged() {
+        refreshTitlePreview()
+        OverlayService.onSettingsChanged?.invoke()
+    }
+
+    private fun buildTitleStyle() {
+        val c = card("Gaya judul turnamen", summary = "Font, ukuran, dan posisi judul", open = true)
+        hint(c, "Judul turnamen tampil di atas bracket dan di panel overlay.")
+        titlePreview = TextView(this).apply {
+            setTextColor(ContextCompat.getColor(this@SettingsActivity, R.color.text))
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = Skin.chip(this@SettingsActivity)
+            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
+        }
+        Fonts.markTitle(titlePreview!!)
+        c.addView(titlePreview)
+        refreshTitlePreview()
+
+        divider(c)
+        label(c, "Font judul (${Fonts.list(this, "title").size} pilihan)")
+        val valueTv = pickRow(c, "Khusus judul turnamen", Prefs.titleFont(this).ifEmpty { "Bawaan sistem" }, "Pilih") {
+            pickFont("title", Prefs.titleFont(this), "Font judul") { n ->
+                Prefs.setTitleFont(this, n)
+                titleStyleChanged()
+                titleFontValue?.text = n.ifEmpty { "Bawaan sistem" }
+            }
+        }
+        titleFontValue = valueTv
+
+        slider(c, "Ukuran judul", 12, 44, Prefs.titleSize(this), { "$it sp" }) {
+            Prefs.setTitleSize(this, it)
+            titleStyleChanged()
+        }
+        label(c, "Posisi judul")
+        chips(c, listOf("Kiri", "Tengah", "Kanan"), Prefs.titleAlign(this)) { i ->
+            Prefs.setTitleAlign(this, i)
+            titleStyleChanged()
+        }
+    }
+
+    private var titleFontValue: TextView? = null
 
     private fun accentHex() = "#%06X".format(Prefs.accentColor(this) and 0xFFFFFF)
 
@@ -169,6 +254,25 @@ class SettingsActivity : BaseActivity() {
         }
         c.addView(HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(swatches) })
         button(c, "Pilih warna sendiri") { Pickers.accentDialog(this) { OverlayService.onSettingsChanged?.invoke(); recreate() } }
+
+        divider(c)
+        label(c, "Desain UI (${ThemeManager.uiDesignNames.size} pilihan)")
+        pickRow(c, "Bentuk kartu, tombol, dan garis", ThemeManager.uiDesignNames[Prefs.uiDesign(this)], "Pilih") {
+            Pickers.grid(this, "Desain UI", "${ThemeManager.uiDesignNames.size} bentuk berbeda (bukan warna)", ThemeManager.uiDesignNames.size,
+                Prefs.uiDesign(this), 3, { i, sel -> Pickers.uiDesignTile(this, i, sel) }) { i ->
+                Prefs.setUiDesign(this, i)
+                recreate()
+            }
+        }
+
+        divider(c)
+        label(c, "Font aplikasi (${Fonts.list(this, "ui").size} pilihan)")
+        pickRow(c, "Berlaku di seluruh aplikasi", Prefs.uiFont(this).ifEmpty { "Bawaan sistem" }, "Pilih") {
+            pickFont("ui", Prefs.uiFont(this), "Font aplikasi") { n ->
+                Prefs.setUiFont(this, n)
+                recreate()
+            }
+        }
 
         divider(c)
         switchRow(c, "Animasi", "Transisi halus di seluruh aplikasi", Prefs.animations(this)) {

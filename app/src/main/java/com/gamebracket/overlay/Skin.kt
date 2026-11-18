@@ -31,11 +31,23 @@ object Skin {
             if (stroke != null) setStroke((strokeDp * d(ctx)).toInt().coerceAtLeast(1), stroke)
         }
 
-    fun primary(ctx: Context): Drawable = rect(ctx, accent(ctx), 10f)
-    fun chipActive(ctx: Context): Drawable = rect(ctx, accent(ctx), 10f)
+    private fun chipRadiusDp(ctx: Context) = ThemeManager.dimen(ctx, R.attr.blChipRadius) / d(ctx)
+    private fun strokeDp(ctx: Context) = ThemeManager.dimen(ctx, R.attr.blStrokeW) / d(ctx)
+
+    fun primary(ctx: Context): Drawable = rect(ctx, accent(ctx), chipRadiusDp(ctx))
+    fun chipActive(ctx: Context): Drawable = rect(ctx, accent(ctx), chipRadiusDp(ctx))
 
     fun chip(ctx: Context): Drawable =
-        rect(ctx, ThemeManager.color(ctx, R.attr.blSurface2), 10f, ThemeManager.color(ctx, R.attr.blStroke))
+        rect(ctx, ThemeManager.color(ctx, R.attr.blSurface2), chipRadiusDp(ctx), ThemeManager.color(ctx, R.attr.blStroke), strokeDp(ctx).coerceAtLeast(0.01f)).also {
+            if (strokeDp(ctx) < 0.5f) it.setStroke(0, 0)
+        }
+
+    /** Kartu sesuai desain UI terpilih (cermin dari drawable bg_card). */
+    fun card(ctx: Context): Drawable =
+        rect(ctx, ThemeManager.color(ctx, R.attr.blCardFill), ThemeManager.dimen(ctx, R.attr.blCardRadius) / d(ctx),
+            ThemeManager.color(ctx, R.attr.blStroke), strokeDp(ctx).coerceAtLeast(0.01f)).also {
+            if (strokeDp(ctx) < 0.5f) it.setStroke(0, 0)
+        }
 
     /** Pilihan segmen / chip: aktif = aksen penuh, tidak aktif = permukaan datar. */
     fun styleChoice(v: TextView, active: Boolean) {

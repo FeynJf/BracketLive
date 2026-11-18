@@ -1,0 +1,300 @@
+Abhaya Libre
+Aboreto
+Abyssinica SIL
+Akaya Telivigala
+Alegreya
+Alegreya SC
+Alice
+Alike
+Alkalami
+Alkatra
+Almendra SC
+Amarante
+Amethysta
+Amiri Quran
+Andada Pro
+Antic Slab
+Aoboshi One
+Arbutus
+Aref Ruqaa
+Aref Ruqaa Ink
+Arima Madurai
+Arvo
+Asar
+Atomic Age
+Averia Libre
+Bacasime Antique
+Bahiana
+Baloo Bhai 2
+Baloo Da 2
+Baloo Thambi 2
+Baskervville
+Battambang
+Belgrano
+Benne
+Bentham
+Bevan
+BhuTuka Expanded One
+Big Shoulders Display
+Big Shoulders Stencil Text
+BioRhyme Expanded
+BIZ UDMincho
+BIZ UDPMincho
+Black And White Picture
+Blaka Ink
+Bona Nova
+Brawler
+Bruno Ace
+Brygada 1918
+Buenard
+Bungee
+Bungee Shade
+Caesar Dressing
+Cambo
+Cardo
+Castoro
+Castoro Titling
+Charis SIL
+Chelsea Market
+Cherry Cream Soda
+Chewy
+Cinzel
+Cinzel Decorative
+Coiny
+Contrail One
+Cormorant
+Cormorant Infant
+Cormorant SC
+Cormorant Upright
+Coustard
+Crimson Pro
+Crimson Text
+Crushed
+Dai Banna SIL
+Della Respira
+Diphylleia
+Diplomata
+DM Serif Text
+Domine
+DynaPuff
+EB Garamond
+Emblema One
+Enriqueta
+Esteban
+Expletus Sans
+Faster One
+Fauna One
+Faustina
+Fjord One
+Flavors
+Foldit
+Frank Ruhl Libre
+Fredericka the Great
+Fugaz One
+Gabriela
+Galindo
+Gentium Book Plus
+Gentium Plus
+Girassol
+Glegoo
+Gloock
+Goldman
+Gowun Batang
+Graduate
+Grenze
+Grenze Gotisch
+Gupter
+Gurajada
+Hahmlet
+Halant
+Hanalei Fill
+Headland One
+Hina Mincho
+Holtwood One SC
+IBM Plex Serif
+Iceberg
+IM Fell Double Pica
+IM Fell DW Pica
+IM Fell DW Pica SC
+IM Fell English SC
+IM Fell French Canon SC
+IM Fell Great Primer
+Imbue
+Inika
+Inria Serif
+Instrument Serif
+Italiana
+Jacques Francois
+Jomhuria
+Jomolhari
+Josefin Slab
+Junge
+Kadwa
+Kaisei HarunoUmi
+Kaisei Tokumin
+Kameron
+Katibeh
+Kavoon
+Kenia
+Kiwi Maru
+Koh Santepheap
+Koulen
+Kreon
+Kurale
+Lacquer
+Lateef
+Lemon
+Libre Barcode 39 Extended
+Libre Baskerville
+Libre Bodoni
+Libre Caslon Text
+Life Savers
+Linden Hill
+Literata
+Lobster
+Londrina Sketch
+Lusitana
+Lustria
+Luxurious Roman
+Maitree
+Manuale
+Marcellus SC
+Markazi Text
+Martel
+Mate SC
+McLaren
+Merriweather
+Metal
+Miltonian
+Modern Antiqua
+Montaga
+Montagu Slab
+Moo Lah Lah
+Nabla
+Neuton
+New Tegomin
+Noticia Text
+Noto Nastaliq Urdu
+Noto Rashi Hebrew
+Noto Serif Ahom
+Noto Serif Armenian
+Noto Serif Bengali
+Noto Serif Display
+Noto Serif Dogra
+Noto Serif Georgian
+Noto Serif Grantha
+Noto Serif Gurmukhi
+Noto Serif Hebrew
+Noto Serif JP
+Noto Serif Khitan Small Script
+Noto Serif Khmer
+Noto Serif KR
+Noto Serif Lao
+Noto Serif Malayalam
+Noto Serif NP Hmong
+Noto Serif Ottoman Siyaq
+Noto Serif Sinhala
+Noto Serif Tamil
+Noto Serif TC
+Noto Serif Telugu
+Noto Serif Tibetan
+Noto Serif Vithkuqi
+Noto Serif Yezidi
+Nova Cut
+Nova Script
+Offside
+Old Standard TT
+Oleo Script Swash Caps
+Oranienbaum
+Overlock SC
+Padyakke Expanded One
+Passero One
+Peddana
+Petrona
+Piedra
+Pirata One
+Playball
+Playfair
+Playfair Display
+Podkova
+Poltawski Nowy
+Poor Story
+Port Lligat Slab
+Pridi
+Prociono
+PT Serif Caption
+Quando
+Racing Sans One
+Radley
+Ramaraja
+Rampart One
+Red Rose
+Revalia
+Rhodium Libre
+Risque
+Roboto Slab
+Rokkitt
+Rozha One
+Rubik 80s Fade
+Rubik Distressed
+Rubik Marker Hatch
+Rubik Pixels
+Rubik Vinyl
+Rufina
+Sahitya
+Sail
+Sanchez
+Sarina
+Scheherazade New
+Shippori Mincho
+Shippori Mincho B1
+Shizuru
+Sigmar One
+Skranji
+Slabo 27px
+Sniglet
+Solway
+Sorts Mill Goudy
+Spectral
+Spectral SC
+Spicy Rice
+Staatliches
+Stint Ultra Condensed
+Stint Ultra Expanded
+Stoke
+Suez One
+Sura
+Suravaram
+Suwannaphum
+Syne Tactile
+Taviraj
+Texturina
+Tillana
+Tilt Neon
+Tinos
+Tiro Bangla
+Tiro Devanagari Marathi
+Tiro Gurmukhi
+Tiro Kannada
+Tiro Telugu
+Tourney
+Trirong
+Trykker
+Turret Road
+Ultra
+UnifrakturCook
+Unna
+Vampiro One
+Vesper Libre
+Vidaloka
+Vollkorn
+Vollkorn SC
+Wallpoet
+Yeon Sung
+Young Serif
+Yuji Boku
+Yuji Mai
+Zen Antique
+Zen Antique Soft
+Zen Tokyo Zoo
+Zilla Slab

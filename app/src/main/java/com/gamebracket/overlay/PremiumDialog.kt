@@ -32,6 +32,7 @@ class PremiumDialog(private val act: Activity) {
         btnPrimary = view.findViewById(R.id.btnPrimary)
         btnSecondary = view.findViewById(R.id.btnSecondary)
         Skin.apply(view)
+        Fonts.apply(view)
         btnPrimary.visibility = View.GONE
         btnSecondary.visibility = View.GONE
     }
@@ -72,6 +73,7 @@ class PremiumDialog(private val act: Activity) {
 
     fun show(): PremiumDialog {
         if (act.isFinishing || act.isDestroyed) return this
+        Fonts.apply(view)
         dialog.setContentView(view)
         dialog.window?.apply {
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)

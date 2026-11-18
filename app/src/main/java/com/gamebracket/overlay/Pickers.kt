@@ -93,6 +93,27 @@ object Pickers {
         return frame(act, selected, thumb, ThemeManager.baseNames[i])
     }
 
+    // ───────────── Desain UI ─────────────
+
+    fun uiDesignTile(act: Activity, i: Int, selected: Boolean): View {
+        val c = ThemeManager.designContext(act, i)
+        val card = LinearLayout(act).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(act, 7), dp(act, 7), dp(act, 7), dp(act, 7))
+            background = Skin.card(c)
+            layoutParams = LinearLayout.LayoutParams(dp(act, 88), dp(act, 58))
+        }
+        card.addView(View(act).apply {
+            background = Skin.chip(c)
+            layoutParams = LinearLayout.LayoutParams(dp(act, 52), dp(act, 14))
+        })
+        card.addView(View(act).apply {
+            background = Skin.primary(c)
+            layoutParams = LinearLayout.LayoutParams(dp(act, 34), dp(act, 14)).apply { topMargin = dp(act, 6) }
+        })
+        return frame(act, selected, card, ThemeManager.uiDesignNames[i], 8f)
+    }
+
     // ───────────── Desain panel ─────────────
 
     fun panelTile(act: Activity, i: Int, selected: Boolean): View {
@@ -246,5 +267,46 @@ object Pickers {
         d.primary("Terapkan") { Prefs.setAccentColor(act, color); onApplied(); true }
         d.secondary("Batal")
         d.show()
+    }
+
+    // ───────────── Font (700 / 300 / 300) ─────────────
+
+    /** Pemilih font dengan pencarian dan pratinjau. Font diunduh sekali, setelah itu offline. */
+    fun font(act: Activity, which: String, current: String, title: String, onChosen: (String) -> Unit) {
+        val names = listOf("") + Fonts.list(act, which)
+        val rows = names.map { n ->
+            PickRow(if (n.isEmpty()) "Bawaan sistem" else n, face = { if (n.isEmpty()) null else Fonts.cached(act, n) })
+        }
+        val sample = "Bracket Live · Juara 123"
+        ListPicker.show(
+            act, title, "${names.size - 1} font · diunduh sekali, lalu bisa offline", rows,
+            names.indexOf(current).coerceAtLeast(0), confirm = true, preview = sample,
+            onPreview = { idx, tv ->
+                val n = names[idx]
+                tv.tag = idx
+                tv.text = sample
+                if (n.isEmpty()) {
+                    tv.typeface = Typeface.DEFAULT
+                } else {
+                    val f = Fonts.cached(act, n)
+                    if (f != null) tv.typeface = f else {
+                        tv.text = "Mengunduh font…"
+                        Fonts.ensure(act, n) { ok ->
+                            if (tv.tag == idx) {
+                                tv.text = if (ok) sample else "Gagal mengunduh (cek internet)"
+                                if (ok) tv.typeface = Fonts.cached(act, n)
+                            }
+                        }
+                    }
+                }
+            }
+        ) { idx ->
+            val n = names[idx]
+            if (n.isEmpty()) onChosen("")
+            else Fonts.ensure(act, n) { ok ->
+                if (ok) onChosen(n)
+                else android.widget.Toast.makeText(act, "Font belum bisa diunduh, cek koneksi internet", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
 }

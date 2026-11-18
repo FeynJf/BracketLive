@@ -1,0 +1,604 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 100 desain UI: gaya kartu x tingkat sudut x bentuk tombol (bukan warna) -->
+    <style name="BL.Ui.D001" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D002" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D003" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D004" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D005" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D006" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D007" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D008" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D009" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">8dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D010" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D011" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D012" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D013" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">13dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D014" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D015" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D016" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D017" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">18dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D018" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D019" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D020" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D021" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D022" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D023" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D024" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D025" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D026" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D027" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D028" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D029" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">8dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D030" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D031" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D032" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D033" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">13dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D034" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D035" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D036" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D037" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">18dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D038" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D039" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D040" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">0dp</item>
+        <item name="blCardFill">?attr/blSurface2</item>
+    </style>
+    <style name="BL.Ui.D041" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D042" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D043" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D044" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D045" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D046" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D047" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D048" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D049" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">8dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D050" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D051" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D052" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D053" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">13dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D054" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D055" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D056" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D057" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">18dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D058" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D059" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D060" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">1dp</item>
+        <item name="blCardFill">#1AFFFFFF</item>
+    </style>
+    <style name="BL.Ui.D061" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D062" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D063" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D064" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D065" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D066" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D067" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D068" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D069" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">8dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D070" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D071" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D072" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D073" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">13dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D074" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D075" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D076" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D077" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">18dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D078" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D079" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D080" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">2dp</item>
+        <item name="blCardFill">?attr/blSurface3</item>
+    </style>
+    <style name="BL.Ui.D081" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D082" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D083" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D084" parent="">
+        <item name="blCardRadius">0dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D085" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D086" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D087" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D088" parent="">
+        <item name="blCardRadius">6dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D089" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">8dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D090" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D091" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D092" parent="">
+        <item name="blCardRadius">12dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D093" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">13dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D094" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D095" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D096" parent="">
+        <item name="blCardRadius">18dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D097" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">18dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D098" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">100dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D099" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">0dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+    <style name="BL.Ui.D100" parent="">
+        <item name="blCardRadius">26dp</item>
+        <item name="blChipRadius">4dp</item>
+        <item name="blStrokeW">3dp</item>
+        <item name="blCardFill">?attr/blSurface</item>
+    </style>
+</resources>
