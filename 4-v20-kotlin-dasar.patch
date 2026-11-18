@@ -1,0 +1,815 @@
+diff --git a/app/src/main/java/com/gamebracket/overlay/BaseActivity.kt b/app/src/main/java/com/gamebracket/overlay/BaseActivity.kt
+index 8177368..d471343 100644
+--- a/app/src/main/java/com/gamebracket/overlay/BaseActivity.kt
++++ b/app/src/main/java/com/gamebracket/overlay/BaseActivity.kt
+@@ -1,12 +1,24 @@
+ package com.gamebracket.overlay
+ 
+ import android.os.Bundle
++import android.os.Handler
++import android.os.Looper
++import android.view.ViewTreeObserver
+ import androidx.appcompat.app.AppCompatActivity
+ 
+ /** Dasar semua layar: menerapkan tema pilihan pengguna & melacak keterlihatan aplikasi. */
+ open class BaseActivity : AppCompatActivity() {
+ 
+     private var appliedKey = ""
++    private val handler = Handler(Looper.getMainLooper())
++    private val fontRun = Runnable { Fonts.apply(window.decorView) }
++    // tampilan yang dibuat lewat kode ikut mendapat font setelah layout selesai
++    private val layoutListener = ViewTreeObserver.OnGlobalLayoutListener {
++        if (Prefs.uiFont(this).isNotEmpty() || Prefs.titleFont(this).isNotEmpty()) {
++            handler.removeCallbacks(fontRun)
++            handler.postDelayed(fontRun, 60)
++        }
++    }
+ 
+     override fun onCreate(savedInstanceState: Bundle?) {
+         ThemeManager.apply(this)
+@@ -18,15 +30,24 @@ open class BaseActivity : AppCompatActivity() {
+     override fun onContentChanged() {
+         super.onContentChanged()
+         Skin.apply(window.decorView)
++        Fonts.apply(window.decorView)
+     }
+ 
+     override fun onStart() {
+         super.onStart()
+         AppVisibility.onStart()
++        window.decorView.viewTreeObserver.addOnGlobalLayoutListener(layoutListener)
++        Fonts.addListener(javaClass.name) { Fonts.apply(window.decorView) }
++        Fonts.preload(this)
++        Fonts.apply(window.decorView)
+     }
+ 
+     override fun onStop() {
+         AppVisibility.onStop()
++        handler.removeCallbacks(fontRun)
++        val vto = window.decorView.viewTreeObserver
++        if (vto.isAlive) vto.removeOnGlobalLayoutListener(layoutListener)
++        Fonts.addListener(javaClass.name, null)
+         super.onStop()
+     }
+ 
+diff --git a/app/src/main/java/com/gamebracket/overlay/Fonts.kt b/app/src/main/java/com/gamebracket/overlay/Fonts.kt
+new file mode 100644
+index 0000000..71ca25e
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/Fonts.kt
+@@ -0,0 +1,188 @@
++package com.gamebracket.overlay
++
++import android.content.Context
++import android.graphics.Typeface
++import android.os.Handler
++import android.os.Looper
++import android.view.View
++import android.view.ViewGroup
++import android.widget.TextView
++import java.io.File
++import java.net.HttpURLConnection
++import java.net.URL
++import java.net.URLEncoder
++import java.util.concurrent.Executors
++
++/**
++ * Font dari katalog Google Fonts. Berkas font tidak dibundel di APK (ratusan MB), tapi diunduh
++ * sekali saat dipilih lalu disimpan di perangkat — setelah itu dipakai offline.
++ */
++object Fonts {
++
++    private const val BASE = "https://fonts.gstatic.com/s/"
++    private const val UA = "Mozilla/5.0 (Linux; U; Android 4.4.2; en-us; Nexus 5 Build/KOT49H) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30"
++
++    private val main = Handler(Looper.getMainLooper())
++    private val pool = Executors.newFixedThreadPool(2)
++    private val faces = HashMap<String, Typeface>()
++    private val pending = HashMap<String, MutableList<(Boolean) -> Unit>>()
++    private val listeners = LinkedHashMap<String, () -> Unit>()
++    private var catalog: Map<String, String>? = null
++    private val lists = HashMap<String, List<String>>()
++
++    /** Naik tiap font baru selesai diunduh (layar menyegarkan teksnya). */
++    @Volatile var version = 0
++        private set
++
++    // ───────────── daftar & katalog ─────────────
++
++    /** Daftar nama font: "ui" (700), "title" (300), "cert" (300), "sign" (20). */
++    fun list(ctx: Context, which: String): List<String> = lists.getOrPut(which) {
++        try {
++            ctx.assets.open("fontlist/$which.txt").bufferedReader().use { r -> r.readLines().filter { it.isNotBlank() } }
++        } catch (e: Exception) {
++            emptyList()
++        }
++    }
++
++    private fun catalog(ctx: Context): Map<String, String> {
++        catalog?.let { return it }
++        val m = LinkedHashMap<String, String>()
++        try {
++            for (part in listOf("catalog1.tsv", "catalog2.tsv")) {
++                ctx.assets.open("fontlist/$part").bufferedReader().use { r ->
++                    r.forEachLine { line ->
++                        val i = line.indexOf('\t')
++                        if (i > 0) m[line.substring(0, i)] = line.substring(i + 1).trim()
++                    }
++                }
++            }
++        } catch (e: Exception) {
++            CrashLog.record(ctx, "baca katalog font", e)
++        }
++        catalog = m
++        return m
++    }
++
++    // ───────────── cache & unduh ─────────────
++
++    private fun file(ctx: Context, family: String): File {
++        val slug = family.lowercase().replace(Regex("[^a-z0-9]+"), "_")
++        return File(File(ctx.filesDir, "gfonts").apply { mkdirs() }, "$slug.ttf")
++    }
++
++    /** Font yang sudah ada di perangkat (memori atau berkas). Null kalau belum diunduh. */
++    fun cached(ctx: Context, family: String): Typeface? {
++        if (family.isBlank()) return null
++        faces[family]?.let { return it }
++        val f = file(ctx, family)
++        if (!f.exists() || f.length() < 2048) return null
++        return try {
++            Typeface.createFromFile(f).also { faces[family] = it }
++        } catch (e: Exception) {
++            f.delete()
++            null
++        }
++    }
++
++    /** Pastikan font ada; unduh kalau perlu. [cb] dipanggil di main thread (true = siap dipakai). */
++    fun ensure(ctx: Context, family: String, cb: (Boolean) -> Unit = {}) {
++        if (family.isBlank()) { cb(true); return }
++        if (cached(ctx, family) != null) { cb(true); return }
++        val app = ctx.applicationContext
++        synchronized(pending) {
++            val waiting = pending[family]
++            if (waiting != null) { waiting.add(cb); return }
++            pending[family] = mutableListOf(cb)
++        }
++        pool.execute {
++            val ok = try { download(app, family) } catch (e: Exception) { CrashLog.record(app, "unduh font $family", e); false }
++            main.post {
++                if (ok) { version++; listeners.values.toList().forEach { it() } }
++                val cbs = synchronized(pending) { pending.remove(family) } ?: mutableListOf()
++                cbs.forEach { it(ok && cached(app, family) != null) }
++            }
++        }
++    }
++
++    private fun fetch(url: String, dest: File): Boolean {
++        val conn = URL(url).openConnection() as HttpURLConnection
++        try {
++            conn.connectTimeout = 12000
++            conn.readTimeout = 20000
++            conn.setRequestProperty("User-Agent", UA)
++            if (conn.responseCode != 200) return false
++            val part = File(dest.parentFile, dest.name + ".part")
++            conn.inputStream.use { i -> part.outputStream().use { o -> i.copyTo(o) } }
++            if (part.length() < 2048) { part.delete(); return false }
++            // pastikan berkasnya font yang valid sebelum dipakai
++            Typeface.createFromFile(part)
++            return part.renameTo(dest)
++        } finally {
++            conn.disconnect()
++        }
++    }
++
++    private fun download(ctx: Context, family: String): Boolean {
++        val dest = file(ctx, family)
++        val path = catalog(ctx)[family]
++        if (path != null) {
++            try { if (fetch(BASE + path, dest)) return true } catch (e: Exception) { /* coba jalur cadangan */ }
++        }
++        // cadangan: minta CSS ke Google Fonts lalu ambil URL TTF-nya
++        val css = URL("https://fonts.googleapis.com/css?family=" + URLEncoder.encode(family, "UTF-8"))
++            .openConnection().let { c ->
++                c.setRequestProperty("User-Agent", UA)
++                c.connectTimeout = 12000
++                c.readTimeout = 12000
++                c.getInputStream().bufferedReader().use { it.readText() }
++            }
++        val url = Regex("url\\((https://[^)]+\\.ttf)\\)").find(css)?.groupValues?.get(1) ?: return false
++        return fetch(url, dest)
++    }
++
++    // ───────────── pemakaian ─────────────
++
++    fun uiFace(ctx: Context): Typeface? = Prefs.uiFont(ctx).let { if (it.isEmpty()) null else cached(ctx, it) }
++    fun titleFace(ctx: Context): Typeface? = Prefs.titleFont(ctx).let { if (it.isEmpty()) null else cached(ctx, it) }
++
++    /** Unduh font pilihan yang belum ada (dipanggil saat aplikasi dibuka). */
++    fun preload(ctx: Context) {
++        listOf(Prefs.uiFont(ctx), Prefs.titleFont(ctx)).forEach { if (it.isNotEmpty()) ensure(ctx, it) }
++    }
++
++    fun addListener(key: String, fn: (() -> Unit)?) {
++        if (fn == null) listeners.remove(key) else listeners[key] = fn
++    }
++
++    /** Terapkan font aplikasi ke semua TextView di [root] (judul turnamen memakai font judulnya sendiri). */
++    fun apply(root: View) {
++        val ctx = root.context
++        val ui = uiFace(ctx)
++        val title = titleFace(ctx)
++        if (ui == null && title == null) return
++        walk(root, ctx, ui, title)
++    }
++
++    private fun walk(v: View, ctx: Context, ui: Typeface?, title: Typeface?) {
++        if (v is TextView) {
++            val role = v.getTag(R.id.font_role) as? String
++            val face = when (role) {
++                "keep" -> null
++                "title" -> title ?: ui
++                else -> ui
++            }
++            if (face != null && v.getTag(R.id.font_key) != face) {
++                v.setTypeface(face, v.typeface?.style ?: Typeface.NORMAL)
++                v.setTag(R.id.font_key, face)
++            }
++        }
++        if (v is ViewGroup) for (i in 0 until v.childCount) walk(v.getChildAt(i), ctx, ui, title)
++    }
++
++    /** Tandai TextView agar font aplikasi tidak menimpanya (mis. pratinjau font). */
++    fun markKeep(v: TextView) { v.setTag(R.id.font_role, "keep") }
++
++    /** Tandai TextView sebagai judul turnamen (memakai font & gaya judul). */
++    fun markTitle(v: TextView) { v.setTag(R.id.font_role, "title") }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/ListPicker.kt b/app/src/main/java/com/gamebracket/overlay/ListPicker.kt
+new file mode 100644
+index 0000000..5db9f19
+--- /dev/null
++++ b/app/src/main/java/com/gamebracket/overlay/ListPicker.kt
+@@ -0,0 +1,147 @@
++package com.gamebracket.overlay
++
++import android.app.Activity
++import android.graphics.Typeface
++import android.graphics.drawable.GradientDrawable
++import android.text.Editable
++import android.text.TextWatcher
++import android.view.Gravity
++import android.view.View
++import android.view.ViewGroup
++import android.widget.BaseAdapter
++import android.widget.EditText
++import android.widget.LinearLayout
++import android.widget.ListView
++import android.widget.TextView
++import androidx.core.content.ContextCompat
++
++/** Satu baris pilihan: judul, keterangan, titik warna (opsional), dan font untuk pratinjau (opsional). */
++class PickRow(val title: String, val sub: String? = null, val dots: IntArray? = null, val face: () -> Typeface? = { null })
++
++/** Dialog daftar dengan pencarian (dipakai untuk font, desain sertifikat, tema warna, dll). */
++object ListPicker {
++
++    /**
++     * @param confirm true = ketuk baris hanya memilih (pratinjau), lalu tombol Terapkan menetapkan.
++     * @param preview teks contoh yang tampil di atas daftar (untuk pratinjau font); [onPreview] dipanggil tiap baris dipilih.
++     */
++    fun show(
++        act: Activity, title: String, subtitle: String, rows: List<PickRow>, selected: Int,
++        confirm: Boolean = false, preview: String? = null,
++        onPreview: ((Int, TextView) -> Unit)? = null, onPick: (Int) -> Unit
++    ) {
++        val d0 = act.resources.displayMetrics.density
++        fun dp(v: Int) = (v * d0).toInt()
++        val dlg = PremiumDialog(act).title(title, subtitle)
++        var current = selected
++        var shown: List<Int> = rows.indices.toList()
++
++        var previewView: TextView? = null
++        if (preview != null) {
++            previewView = TextView(act).apply {
++                text = preview
++                textSize = 20f
++                gravity = Gravity.CENTER
++                setTextColor(ContextCompat.getColor(act, R.color.text))
++                setPadding(dp(12), dp(14), dp(12), dp(14))
++                background = Skin.chip(act)
++            }
++            Fonts.markKeep(previewView)
++            dlg.body.addView(previewView, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(10) })
++            if (current in rows.indices) onPreview?.invoke(current, previewView)
++        }
++
++        val search = EditText(act).apply {
++            hint = "Cari (${rows.size})"
++            setHintTextColor(ContextCompat.getColor(act, R.color.dim))
++            setTextColor(ContextCompat.getColor(act, R.color.text))
++            textSize = 14f
++            setSingleLine()
++            setPadding(dp(14), 0, dp(14), 0)
++            setBackgroundResource(R.drawable.bg_input)
++        }
++        dlg.body.addView(search, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(44)))
++
++        val list = ListView(act).apply {
++            divider = null
++            isVerticalScrollBarEnabled = false
++            overScrollMode = View.OVER_SCROLL_NEVER
++        }
++        val adapter = object : BaseAdapter() {
++            override fun getCount() = shown.size
++            override fun getItem(p: Int) = rows[shown[p]]
++            override fun getItemId(p: Int) = shown[p].toLong()
++            override fun getView(p: Int, convert: View?, parent: ViewGroup?): View {
++                val idx = shown[p]
++                val row = rows[idx]
++                val sel = idx == current
++                val box = LinearLayout(act).apply {
++                    orientation = LinearLayout.HORIZONTAL
++                    gravity = Gravity.CENTER_VERTICAL
++                    setPadding(dp(12), dp(10), dp(12), dp(10))
++                    background = if (sel) Skin.rect(act, ThemeManager.withAlpha(Skin.accent(act), 38), 8f, Skin.accent(act), 1.5f) else null
++                }
++                row.dots?.forEach { c ->
++                    box.addView(View(act).apply {
++                        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(c); setStroke(dp(1), 0x44FFFFFF) }
++                        layoutParams = LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginEnd = dp(5) }
++                    })
++                }
++                val col = LinearLayout(act).apply {
++                    orientation = LinearLayout.VERTICAL
++                    layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { if (row.dots != null) marginStart = dp(6) }
++                }
++                col.addView(TextView(act).apply {
++                    text = row.title
++                    textSize = 15f
++                    setTextColor(ContextCompat.getColor(act, if (sel) R.color.text else R.color.muted_light))
++                    if (sel) setTypeface(typeface, Typeface.BOLD)
++                    row.face()?.let { f -> setTypeface(f, if (sel) Typeface.BOLD else Typeface.NORMAL); Fonts.markKeep(this) }
++                })
++                if (row.sub != null) col.addView(TextView(act).apply {
++                    text = row.sub
++                    textSize = 11f
++                    setTextColor(ContextCompat.getColor(act, R.color.muted))
++                })
++                box.addView(col)
++                if (sel) box.addView(View(act).apply {
++                    background = Skin.rect(act, Skin.accent(act), 4f)
++                    layoutParams = LinearLayout.LayoutParams(dp(8), dp(8))
++                })
++                return box
++            }
++        }
++        list.adapter = adapter
++        list.setOnItemClickListener { _, _, p, _ ->
++            val idx = shown[p]
++            if (confirm) {
++                current = idx
++                adapter.notifyDataSetChanged()
++                previewView?.let { onPreview?.invoke(idx, it) }
++            } else {
++                dlg.dismiss()
++                onPick(idx)
++            }
++        }
++        search.addTextChangedListener(object : TextWatcher {
++            override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
++            override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
++            override fun afterTextChanged(s: Editable?) {
++                val q = s?.toString()?.trim()?.lowercase() ?: ""
++                shown = if (q.isEmpty()) rows.indices.toList() else rows.indices.filter { rows[it].title.lowercase().contains(q) }
++                adapter.notifyDataSetChanged()
++            }
++        })
++        val maxH = minOf(dp(320), (act.resources.displayMetrics.heightPixels * 0.42f).toInt())
++        dlg.body.addView(list, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, maxH).apply { topMargin = dp(8) })
++
++        if (confirm) {
++            dlg.primary("Terapkan") { onPick(current); true }
++            dlg.secondary("Batal")
++        } else {
++            dlg.secondary("Tutup")
++        }
++        dlg.show()
++        if (current > 3) list.post { list.setSelection(maxOf(0, current - 2)) }
++    }
++}
+diff --git a/app/src/main/java/com/gamebracket/overlay/Pickers.kt b/app/src/main/java/com/gamebracket/overlay/Pickers.kt
+index 3428338..719af17 100644
+--- a/app/src/main/java/com/gamebracket/overlay/Pickers.kt
++++ b/app/src/main/java/com/gamebracket/overlay/Pickers.kt
+@@ -93,6 +93,27 @@ object Pickers {
+         return frame(act, selected, thumb, ThemeManager.baseNames[i])
+     }
+ 
++    // ───────────── Desain UI ─────────────
++
++    fun uiDesignTile(act: Activity, i: Int, selected: Boolean): View {
++        val c = ThemeManager.designContext(act, i)
++        val card = LinearLayout(act).apply {
++            orientation = LinearLayout.VERTICAL
++            setPadding(dp(act, 7), dp(act, 7), dp(act, 7), dp(act, 7))
++            background = Skin.card(c)
++            layoutParams = LinearLayout.LayoutParams(dp(act, 88), dp(act, 58))
++        }
++        card.addView(View(act).apply {
++            background = Skin.chip(c)
++            layoutParams = LinearLayout.LayoutParams(dp(act, 52), dp(act, 14))
++        })
++        card.addView(View(act).apply {
++            background = Skin.primary(c)
++            layoutParams = LinearLayout.LayoutParams(dp(act, 34), dp(act, 14)).apply { topMargin = dp(act, 6) }
++        })
++        return frame(act, selected, card, ThemeManager.uiDesignNames[i], 8f)
++    }
++
+     // ───────────── Desain panel ─────────────
+ 
+     fun panelTile(act: Activity, i: Int, selected: Boolean): View {
+@@ -247,4 +268,45 @@ object Pickers {
+         d.secondary("Batal")
+         d.show()
+     }
++
++    // ───────────── Font (700 / 300 / 300) ─────────────
++
++    /** Pemilih font dengan pencarian dan pratinjau. Font diunduh sekali, setelah itu offline. */
++    fun font(act: Activity, which: String, current: String, title: String, onChosen: (String) -> Unit) {
++        val names = listOf("") + Fonts.list(act, which)
++        val rows = names.map { n ->
++            PickRow(if (n.isEmpty()) "Bawaan sistem" else n, face = { if (n.isEmpty()) null else Fonts.cached(act, n) })
++        }
++        val sample = "Bracket Live · Juara 123"
++        ListPicker.show(
++            act, title, "${names.size - 1} font · diunduh sekali, lalu bisa offline", rows,
++            names.indexOf(current).coerceAtLeast(0), confirm = true, preview = sample,
++            onPreview = { idx, tv ->
++                val n = names[idx]
++                tv.tag = idx
++                tv.text = sample
++                if (n.isEmpty()) {
++                    tv.typeface = Typeface.DEFAULT
++                } else {
++                    val f = Fonts.cached(act, n)
++                    if (f != null) tv.typeface = f else {
++                        tv.text = "Mengunduh font…"
++                        Fonts.ensure(act, n) { ok ->
++                            if (tv.tag == idx) {
++                                tv.text = if (ok) sample else "Gagal mengunduh (cek internet)"
++                                if (ok) tv.typeface = Fonts.cached(act, n)
++                            }
++                        }
++                    }
++                }
++            }
++        ) { idx ->
++            val n = names[idx]
++            if (n.isEmpty()) onChosen("")
++            else Fonts.ensure(act, n) { ok ->
++                if (ok) onChosen(n)
++                else android.widget.Toast.makeText(act, "Font belum bisa diunduh, cek koneksi internet", android.widget.Toast.LENGTH_LONG).show()
++            }
++        }
++    }
+ }
+diff --git a/app/src/main/java/com/gamebracket/overlay/Prefs.kt b/app/src/main/java/com/gamebracket/overlay/Prefs.kt
+index 40ed43a..f738831 100644
+--- a/app/src/main/java/com/gamebracket/overlay/Prefs.kt
++++ b/app/src/main/java/com/gamebracket/overlay/Prefs.kt
+@@ -34,6 +34,14 @@ object Prefs {
+     fun animations(ctx: Context) = bool(ctx, "animations", true)
+     fun setAnimations(ctx: Context, v: Boolean) = putBool(ctx, "animations", v)
+ 
++    // ── Font & desain UI ──
++    /** Nama keluarga font aplikasi ("" = bawaan). */
++    fun uiFont(ctx: Context) = str(ctx, "ui_font", "")
++    fun setUiFont(ctx: Context, v: String) = putStr(ctx, "ui_font", v)
++    /** Desain UI 0..99 (bentuk kartu/tombol/garis, bukan warna). */
++    fun uiDesign(ctx: Context) = int(ctx, "ui_design", 0).coerceIn(0, 99)
++    fun setUiDesign(ctx: Context, v: Int) = putInt(ctx, "ui_design", v.coerceIn(0, 99))
++
+     /** 0 = otomatis dari perangkat, 1 = hemat, 2 = maksimal. */
+     fun perfMode(ctx: Context) = int(ctx, "perf_mode", 0)
+     fun setPerfMode(ctx: Context, v: Int) = putInt(ctx, "perf_mode", v)
+@@ -80,6 +88,14 @@ object Prefs {
+     /** Nama turnamen: tampil di atas bracket (aplikasi) dan di panel overlay. */
+     fun tournamentName(ctx: Context) = str(ctx, "tournament_name", "")
+     fun setTournamentName(ctx: Context, v: String) = putStr(ctx, "tournament_name", v.trim())
++    /** Gaya judul turnamen: font, ukuran (sp) dan posisi (0 kiri, 1 tengah, 2 kanan). */
++    fun titleFont(ctx: Context) = str(ctx, "title_font", "")
++    fun setTitleFont(ctx: Context, v: String) = putStr(ctx, "title_font", v)
++    fun titleSize(ctx: Context) = int(ctx, "title_size", 22).coerceIn(12, 44)
++    fun setTitleSize(ctx: Context, v: Int) = putInt(ctx, "title_size", v.coerceIn(12, 44))
++    fun titleAlign(ctx: Context) = int(ctx, "title_align", 0).coerceIn(0, 2)
++    fun setTitleAlign(ctx: Context, v: Int) = putInt(ctx, "title_align", v.coerceIn(0, 2))
++
+     /** Ukuran bracket penuh terakhir (dipulihkan saat mode "langsung semifinal" dimatikan). */
+     fun fullBracketSize(ctx: Context) = int(ctx, "full_bracket_size", 8)
+     fun setFullBracketSize(ctx: Context, v: Int) = putInt(ctx, "full_bracket_size", v)
+diff --git a/app/src/main/java/com/gamebracket/overlay/PremiumDialog.kt b/app/src/main/java/com/gamebracket/overlay/PremiumDialog.kt
+index ce1042b..155cef3 100644
+--- a/app/src/main/java/com/gamebracket/overlay/PremiumDialog.kt
++++ b/app/src/main/java/com/gamebracket/overlay/PremiumDialog.kt
+@@ -32,6 +32,7 @@ class PremiumDialog(private val act: Activity) {
+         btnPrimary = view.findViewById(R.id.btnPrimary)
+         btnSecondary = view.findViewById(R.id.btnSecondary)
+         Skin.apply(view)
++        Fonts.apply(view)
+         btnPrimary.visibility = View.GONE
+         btnSecondary.visibility = View.GONE
+     }
+@@ -72,6 +73,7 @@ class PremiumDialog(private val act: Activity) {
+ 
+     fun show(): PremiumDialog {
+         if (act.isFinishing || act.isDestroyed) return this
++        Fonts.apply(view)
+         dialog.setContentView(view)
+         dialog.window?.apply {
+             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+diff --git a/app/src/main/java/com/gamebracket/overlay/Skin.kt b/app/src/main/java/com/gamebracket/overlay/Skin.kt
+index 144bfe6..2a8edce 100644
+--- a/app/src/main/java/com/gamebracket/overlay/Skin.kt
++++ b/app/src/main/java/com/gamebracket/overlay/Skin.kt
+@@ -31,11 +31,23 @@ object Skin {
+             if (stroke != null) setStroke((strokeDp * d(ctx)).toInt().coerceAtLeast(1), stroke)
+         }
+ 
+-    fun primary(ctx: Context): Drawable = rect(ctx, accent(ctx), 10f)
+-    fun chipActive(ctx: Context): Drawable = rect(ctx, accent(ctx), 10f)
++    private fun chipRadiusDp(ctx: Context) = ThemeManager.dimen(ctx, R.attr.blChipRadius) / d(ctx)
++    private fun strokeDp(ctx: Context) = ThemeManager.dimen(ctx, R.attr.blStrokeW) / d(ctx)
++
++    fun primary(ctx: Context): Drawable = rect(ctx, accent(ctx), chipRadiusDp(ctx))
++    fun chipActive(ctx: Context): Drawable = rect(ctx, accent(ctx), chipRadiusDp(ctx))
+ 
+     fun chip(ctx: Context): Drawable =
+-        rect(ctx, ThemeManager.color(ctx, R.attr.blSurface2), 10f, ThemeManager.color(ctx, R.attr.blStroke))
++        rect(ctx, ThemeManager.color(ctx, R.attr.blSurface2), chipRadiusDp(ctx), ThemeManager.color(ctx, R.attr.blStroke), strokeDp(ctx).coerceAtLeast(0.01f)).also {
++            if (strokeDp(ctx) < 0.5f) it.setStroke(0, 0)
++        }
++
++    /** Kartu sesuai desain UI terpilih (cermin dari drawable bg_card). */
++    fun card(ctx: Context): Drawable =
++        rect(ctx, ThemeManager.color(ctx, R.attr.blCardFill), ThemeManager.dimen(ctx, R.attr.blCardRadius) / d(ctx),
++            ThemeManager.color(ctx, R.attr.blStroke), strokeDp(ctx).coerceAtLeast(0.01f)).also {
++            if (strokeDp(ctx) < 0.5f) it.setStroke(0, 0)
++        }
+ 
+     /** Pilihan segmen / chip: aktif = aksen penuh, tidak aktif = permukaan datar. */
+     fun styleChoice(v: TextView, active: Boolean) {
+diff --git a/app/src/main/java/com/gamebracket/overlay/ThemeManager.kt b/app/src/main/java/com/gamebracket/overlay/ThemeManager.kt
+index 0a52da7..859abaa 100644
+--- a/app/src/main/java/com/gamebracket/overlay/ThemeManager.kt
++++ b/app/src/main/java/com/gamebracket/overlay/ThemeManager.kt
+@@ -95,6 +95,211 @@ object ThemeManager {
+         intArrayOf(0xFF182213.toInt(), 0xFF090D07.toInt(), 0xFF1B2615.toInt()),
+     )
+ 
++    val uiDesignNames: List<String> = listOf(
++        "Outline · Tajam · Ikut Kartu",
++        "Outline · Tajam · Pil",
++        "Outline · Tajam · Kotak",
++        "Outline · Tajam · Kecil",
++        "Outline · Halus · Ikut Kartu",
++        "Outline · Halus · Pil",
++        "Outline · Halus · Kotak",
++        "Outline · Halus · Kecil",
++        "Outline · Bulat · Ikut Kartu",
++        "Outline · Bulat · Pil",
++        "Outline · Bulat · Kotak",
++        "Outline · Bulat · Kecil",
++        "Outline · Lembut · Ikut Kartu",
++        "Outline · Lembut · Pil",
++        "Outline · Lembut · Kotak",
++        "Outline · Lembut · Kecil",
++        "Outline · Besar · Ikut Kartu",
++        "Outline · Besar · Pil",
++        "Outline · Besar · Kotak",
++        "Outline · Besar · Kecil",
++        "Datar · Tajam · Ikut Kartu",
++        "Datar · Tajam · Pil",
++        "Datar · Tajam · Kotak",
++        "Datar · Tajam · Kecil",
++        "Datar · Halus · Ikut Kartu",
++        "Datar · Halus · Pil",
++        "Datar · Halus · Kotak",
++        "Datar · Halus · Kecil",
++        "Datar · Bulat · Ikut Kartu",
++        "Datar · Bulat · Pil",
++        "Datar · Bulat · Kotak",
++        "Datar · Bulat · Kecil",
++        "Datar · Lembut · Ikut Kartu",
++        "Datar · Lembut · Pil",
++        "Datar · Lembut · Kotak",
++        "Datar · Lembut · Kecil",
++        "Datar · Besar · Ikut Kartu",
++        "Datar · Besar · Pil",
++        "Datar · Besar · Kotak",
++        "Datar · Besar · Kecil",
++        "Kaca · Tajam · Ikut Kartu",
++        "Kaca · Tajam · Pil",
++        "Kaca · Tajam · Kotak",
++        "Kaca · Tajam · Kecil",
++        "Kaca · Halus · Ikut Kartu",
++        "Kaca · Halus · Pil",
++        "Kaca · Halus · Kotak",
++        "Kaca · Halus · Kecil",
++        "Kaca · Bulat · Ikut Kartu",
++        "Kaca · Bulat · Pil",
++        "Kaca · Bulat · Kotak",
++        "Kaca · Bulat · Kecil",
++        "Kaca · Lembut · Ikut Kartu",
++        "Kaca · Lembut · Pil",
++        "Kaca · Lembut · Kotak",
++        "Kaca · Lembut · Kecil",
++        "Kaca · Besar · Ikut Kartu",
++        "Kaca · Besar · Pil",
++        "Kaca · Besar · Kotak",
++        "Kaca · Besar · Kecil",
++        "Cekung · Tajam · Ikut Kartu",
++        "Cekung · Tajam · Pil",
++        "Cekung · Tajam · Kotak",
++        "Cekung · Tajam · Kecil",
++        "Cekung · Halus · Ikut Kartu",
++        "Cekung · Halus · Pil",
++        "Cekung · Halus · Kotak",
++        "Cekung · Halus · Kecil",
++        "Cekung · Bulat · Ikut Kartu",
++        "Cekung · Bulat · Pil",
++        "Cekung · Bulat · Kotak",
++        "Cekung · Bulat · Kecil",
++        "Cekung · Lembut · Ikut Kartu",
++        "Cekung · Lembut · Pil",
++        "Cekung · Lembut · Kotak",
++        "Cekung · Lembut · Kecil",
++        "Cekung · Besar · Ikut Kartu",
++        "Cekung · Besar · Pil",
++        "Cekung · Besar · Kotak",
++        "Cekung · Besar · Kecil",
++        "Tebal · Tajam · Ikut Kartu",
++        "Tebal · Tajam · Pil",
++        "Tebal · Tajam · Kotak",
++        "Tebal · Tajam · Kecil",
++        "Tebal · Halus · Ikut Kartu",
++        "Tebal · Halus · Pil",
++        "Tebal · Halus · Kotak",
++        "Tebal · Halus · Kecil",
++        "Tebal · Bulat · Ikut Kartu",
++        "Tebal · Bulat · Pil",
++        "Tebal · Bulat · Kotak",
++        "Tebal · Bulat · Kecil",
++        "Tebal · Lembut · Ikut Kartu",
++        "Tebal · Lembut · Pil",
++        "Tebal · Lembut · Kotak",
++        "Tebal · Lembut · Kecil",
++        "Tebal · Besar · Ikut Kartu",
++        "Tebal · Besar · Pil",
++        "Tebal · Besar · Kotak",
++        "Tebal · Besar · Kecil"
++    )
++    private val uiDesignStyles = intArrayOf(
++        R.style.BL_Ui_D001,
++        R.style.BL_Ui_D002,
++        R.style.BL_Ui_D003,
++        R.style.BL_Ui_D004,
++        R.style.BL_Ui_D005,
++        R.style.BL_Ui_D006,
++        R.style.BL_Ui_D007,
++        R.style.BL_Ui_D008,
++        R.style.BL_Ui_D009,
++        R.style.BL_Ui_D010,
++        R.style.BL_Ui_D011,
++        R.style.BL_Ui_D012,
++        R.style.BL_Ui_D013,
++        R.style.BL_Ui_D014,
++        R.style.BL_Ui_D015,
++        R.style.BL_Ui_D016,
++        R.style.BL_Ui_D017,
++        R.style.BL_Ui_D018,
++        R.style.BL_Ui_D019,
++        R.style.BL_Ui_D020,
++        R.style.BL_Ui_D021,
++        R.style.BL_Ui_D022,
++        R.style.BL_Ui_D023,
++        R.style.BL_Ui_D024,
++        R.style.BL_Ui_D025,
++        R.style.BL_Ui_D026,
++        R.style.BL_Ui_D027,
++        R.style.BL_Ui_D028,
++        R.style.BL_Ui_D029,
++        R.style.BL_Ui_D030,
++        R.style.BL_Ui_D031,
++        R.style.BL_Ui_D032,
++        R.style.BL_Ui_D033,
++        R.style.BL_Ui_D034,
++        R.style.BL_Ui_D035,
++        R.style.BL_Ui_D036,
++        R.style.BL_Ui_D037,
++        R.style.BL_Ui_D038,
++        R.style.BL_Ui_D039,
++        R.style.BL_Ui_D040,
++        R.style.BL_Ui_D041,
++        R.style.BL_Ui_D042,
++        R.style.BL_Ui_D043,
++        R.style.BL_Ui_D044,
++        R.style.BL_Ui_D045,
++        R.style.BL_Ui_D046,
++        R.style.BL_Ui_D047,
++        R.style.BL_Ui_D048,
++        R.style.BL_Ui_D049,
++        R.style.BL_Ui_D050,
++        R.style.BL_Ui_D051,
++        R.style.BL_Ui_D052,
++        R.style.BL_Ui_D053,
++        R.style.BL_Ui_D054,
++        R.style.BL_Ui_D055,
++        R.style.BL_Ui_D056,
++        R.style.BL_Ui_D057,
++        R.style.BL_Ui_D058,
++        R.style.BL_Ui_D059,
++        R.style.BL_Ui_D060,
++        R.style.BL_Ui_D061,
++        R.style.BL_Ui_D062,
++        R.style.BL_Ui_D063,
++        R.style.BL_Ui_D064,
++        R.style.BL_Ui_D065,
++        R.style.BL_Ui_D066,
++        R.style.BL_Ui_D067,
++        R.style.BL_Ui_D068,
++        R.style.BL_Ui_D069,
++        R.style.BL_Ui_D070,
++        R.style.BL_Ui_D071,
++        R.style.BL_Ui_D072,
++        R.style.BL_Ui_D073,
++        R.style.BL_Ui_D074,
++        R.style.BL_Ui_D075,
++        R.style.BL_Ui_D076,
++        R.style.BL_Ui_D077,
++        R.style.BL_Ui_D078,
++        R.style.BL_Ui_D079,
++        R.style.BL_Ui_D080,
++        R.style.BL_Ui_D081,
++        R.style.BL_Ui_D082,
++        R.style.BL_Ui_D083,
++        R.style.BL_Ui_D084,
++        R.style.BL_Ui_D085,
++        R.style.BL_Ui_D086,
++        R.style.BL_Ui_D087,
++        R.style.BL_Ui_D088,
++        R.style.BL_Ui_D089,
++        R.style.BL_Ui_D090,
++        R.style.BL_Ui_D091,
++        R.style.BL_Ui_D092,
++        R.style.BL_Ui_D093,
++        R.style.BL_Ui_D094,
++        R.style.BL_Ui_D095,
++        R.style.BL_Ui_D096,
++        R.style.BL_Ui_D097,
++        R.style.BL_Ui_D098,
++        R.style.BL_Ui_D099,
++        R.style.BL_Ui_D100
++    )
++
+     /** Warna aksen siap pakai (esports): nama + warna. */
+     val accentPresets = listOf(
+         "Vermilion" to 0xFFFF5C39.toInt(), "Merah" to 0xFFFF4655.toInt(), "Crimson" to 0xFFE11D48.toInt(),
+@@ -106,10 +311,11 @@ object ThemeManager {
+     )
+ 
+     /** Dipakai untuk mendeteksi perubahan tema (layar lain dibuat ulang). */
+-    fun key(ctx: Context) = "${Prefs.themeBase(ctx)}-${Prefs.accentColor(ctx)}"
++    fun key(ctx: Context) = "${Prefs.themeBase(ctx)}-${Prefs.accentColor(ctx)}-${Prefs.uiDesign(ctx)}-${Prefs.uiFont(ctx)}"
+ 
+     private fun overlay(theme: android.content.res.Resources.Theme, ctx: Context) {
+         theme.applyStyle(baseStyles[Prefs.themeBase(ctx).coerceIn(0, baseStyles.size - 1)], true)
++        theme.applyStyle(uiDesignStyles[Prefs.uiDesign(ctx).coerceIn(0, uiDesignStyles.size - 1)], true)
+     }
+ 
+     /** Terapkan tema pilihan ke context apa pun (mis. dialog). */
+@@ -131,6 +337,21 @@ object ThemeManager {
+         return tv.data
+     }
+ 
++    /** Nilai dimensi dari atribut tema (px). */
++    fun dimen(ctx: Context, attr: Int): Float {
++        val tv = TypedValue()
++        ctx.theme.resolveAttribute(attr, tv, true)
++        return tv.getDimension(ctx.resources.displayMetrics)
++    }
++
++    /** Context dengan desain UI nomor [i] (untuk pratinjau pilihan). */
++    fun designContext(ctx: Context, i: Int): Context {
++        val c = ContextThemeWrapper(ctx, R.style.Theme_BracketLive)
++        c.theme.applyStyle(baseStyles[Prefs.themeBase(ctx).coerceIn(0, baseStyles.size - 1)], true)
++        c.theme.applyStyle(uiDesignStyles[i.coerceIn(0, uiDesignStyles.size - 1)], true)
++        return c
++    }
++
+     fun accent1(ctx: Context) = Prefs.accentColor(ctx)
+     fun accent2(ctx: Context) = shiftHue(accent1(ctx), 28f)
+     fun accent3(ctx: Context) = shiftHue(accent1(ctx), -28f)
